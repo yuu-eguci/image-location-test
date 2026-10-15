@@ -34,6 +34,9 @@ imageフォルダ内の画像を全部表示する。
     Bキーで背景を黒、灰色、白、チェック柄に切り替えられるようにした。
     Hキーで右上の表示を隠せるようにした。
     F5キーでimageフォルダを読みなおせるようにした (位置はそのまま)。
+    開けない画像ファイルは飛ばすようにした (前は落ちていた)。
+    メッセージを閉じたクリックのままドラッグしても画像が動かないようにした。
+    画面の外にある画像をカーソルキーで動かしたときに、画面の端まで飛ばないようにした。
 """
 
 import os
@@ -93,7 +96,7 @@ def create_image_list(image_dir):
             continue
         try:
             image_list.append(Images(path))
-        except pygame.error:
+        except pygame.error, OSError:
             continue
     return image_list
 
@@ -135,6 +138,8 @@ class ImageTest:
         self.num = 0
         self.notice = None
         self.mouse = (0, 0)
+        # メッセージを閉じたクリックのまま、ドラッグで画像が動かないようにする
+        self.drag_blocked = False
         self.background = 0
         self.show_info = True
         self.running = True
@@ -214,12 +219,15 @@ class ImageTest:
         """イベントをひとつ処理する。"""
         if event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN):
             self.mouse = event.pos
+        if event.type == pygame.MOUSEBUTTONUP:
+            self.drag_blocked = False
         if event.type == pygame.QUIT:
             self.running = False
         elif self.notice:
             # 何か入力があるまでメッセージを表示する
             if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
                 self.notice = None
+                self.drag_blocked = event.type == pygame.MOUSEBUTTONDOWN
         elif event.type == pygame.KEYDOWN and (
             event.key == pygame.K_ESCAPE
             or (event.key == pygame.K_F4 and event.mod & pygame.KMOD_ALT)
@@ -283,18 +291,19 @@ class ImageTest:
             step = 10 if event.mod & pygame.KMOD_SHIFT else 1
             if event.key == pygame.K_x:
                 self.mode = 'select'
-            # 上下左右で画像移動 (画面の外には出さない)
+            # 上下左右で画像移動 (画面の外には出さない。もう外にあるときはその場で止める)
+            width, height = self.screen.get_size()
             if event.key == pygame.K_UP:
-                image.xy[1] = max(y - step, 0)
+                image.xy[1] = max(y - step, min(y, 0))
             if event.key == pygame.K_DOWN:
-                image.xy[1] = min(y + step, self.screen.get_height() - 1)
+                image.xy[1] = min(y + step, max(y, height - 1))
             if event.key == pygame.K_LEFT:
-                image.xy[0] = max(x - step, 0)
+                image.xy[0] = max(x - step, min(x, 0))
             if event.key == pygame.K_RIGHT:
-                image.xy[0] = min(x + step, self.screen.get_width() - 1)
+                image.xy[0] = min(x + step, max(x, width - 1))
         # マウスクリック(左)とドラッグ(左)で画像移動
         if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1) or (
-            event.type == pygame.MOUSEMOTION and event.buttons[0]
+            event.type == pygame.MOUSEMOTION and event.buttons[0] and not self.drag_blocked
         ):
             image.xy = list(event.pos)
         # マウスクリック(右)で戻る
@@ -310,7 +319,12 @@ class ImageTest:
         selected = self.images[self.num].name
         self.images = apply_layout(images, [(image.name, image.xy) for image in self.images])
         names = [image.name for image in self.images]
-        self.num = names.index(selected) if selected in names else 0
+        if selected in names:
+            self.num = names.index(selected)
+        else:
+            # 選んでいた画像が無くなったら、選びなおしてもらう
+            self.num = 0
+            self.mode = 'select'
 
     def putfile(self):
         """画像の一覧をテキスト出力する。書き込めなかったら理由を表示する。"""

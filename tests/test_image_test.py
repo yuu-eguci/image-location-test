@@ -48,6 +48,18 @@ def test_create_image_list_loads_only_images_in_name_order(image_dir):
     assert all(image.xy == [0, 0] for image in images)
 
 
+def test_create_image_list_skips_files_that_cannot_be_opened(image_dir, monkeypatch):
+    load = pygame.image.load
+
+    def fake_load(path):
+        if path.name == 'b.png':
+            raise FileNotFoundError(path)
+        return load(path)
+
+    monkeypatch.setattr(pygame.image, 'load', fake_load)
+    assert [image.name for image in ImageTest.create_image_list(image_dir)] == ['a.png']
+
+
 def test_create_image_list_is_empty_without_folder(tmp_path, screen):
     assert ImageTest.create_image_list(tmp_path / 'missing') == []
 
@@ -168,6 +180,26 @@ def test_shift_cursor_keys_move_image_by_ten_pixels(placing):
     assert image.xy == [WIDTH - 1, 0]
 
 
+@pytest.mark.parametrize(
+    ('start', 'k', 'end'),
+    [
+        ([700, 500], pygame.K_DOWN, [700, 500]),
+        ([700, 500], pygame.K_RIGHT, [700, 500]),
+        ([700, 500], pygame.K_UP, [700, 499]),
+        ([700, 500], pygame.K_LEFT, [699, 500]),
+        ([-20, -30], pygame.K_UP, [-20, -30]),
+        ([-20, -30], pygame.K_LEFT, [-20, -30]),
+        ([-20, -30], pygame.K_DOWN, [-20, -29]),
+        ([-20, -30], pygame.K_RIGHT, [-19, -30]),
+    ],
+)
+def test_cursor_keys_do_not_pull_off_screen_image_to_the_edge(placing, start, k, end):
+    image = placing.images[placing.num]
+    image.xy = start
+    placing.handle_event(key(k))
+    assert image.xy == end
+
+
 @pytest.mark.parametrize('event', [key(pygame.K_x), click(3)])
 def test_x_or_right_click_returns_to_select_mode(placing, event):
     placing.handle_event(event)
@@ -184,6 +216,18 @@ def test_f1_or_middle_click_writes_positions_as_text(placing, event, tmp_path):
     text = (tmp_path / 'out.txt').read_text(encoding='utf-8')
     assert text == 'b.png [0, 0]\na.png [5, 6]\n'
     assert placing.notice
+
+
+def test_click_closing_notice_does_not_drag_image(placing):
+    image = placing.images[placing.num]
+    drag = pygame.event.Event(pygame.MOUSEMOTION, pos=(300, 300), buttons=(1, 0, 0))
+    placing.handle_event(key(pygame.K_F1))
+    placing.handle_event(click(1, pos=(299, 299)))
+    placing.handle_event(drag)
+    assert image.xy == [0, 0]
+    placing.handle_event(pygame.event.Event(pygame.MOUSEBUTTONUP, button=1, pos=(300, 300)))
+    placing.handle_event(drag)
+    assert image.xy == [300, 300]
 
 
 def test_text_output_is_utf8_for_any_file_name(tmp_path, screen, font):
@@ -245,6 +289,14 @@ def test_f5_keeps_images_when_folder_became_empty(app, image_dir):
     app.handle_event(key(pygame.K_F5))
     assert names(app) == ['a.png', 'b.png']
     assert app.info_text()[0] == f'● {image_dir} に画像がありません ●'
+
+
+def test_f5_returns_to_select_mode_when_placed_image_is_gone(app, image_dir):
+    app.handle_event(key(pygame.K_z))
+    (image_dir / 'a.png').unlink()
+    app.handle_event(key(pygame.K_F5))
+    assert names(app) == ['b.png']
+    assert app.mode == 'select'
 
 
 # 終了
@@ -424,6 +476,7 @@ def test_main_sets_up_window_and_runs(monkeypatch, tmp_path):
 
     monkeypatch.setattr(ImageTest.ImageTest, 'run', fake_run)
     monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv('IMAGETEST_SIZE', raising=False)
     ImageTest.main()
     assert seen == {
         'caption': '画像配置テスト ESCキーで終了できます',

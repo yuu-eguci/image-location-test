@@ -13,8 +13,8 @@ services:
       - ./image:/app/image:ro
       - ./output:/app/output
     healthcheck:
-      # 仮想ディスプレイと VNC が動いていれば "RFB" で始まる挨拶が返ってくる
-      test: ["CMD", "python", "-c", "import socket; assert socket.create_connection(('localhost', 5900), 2).recv(3) == b'RFB'"]
+      # 仮想ディスプレイと VNC が動いていれば "RFB" で始まる挨拶が返ってくる。noVNC (6080) もつながるか見る
+      test: ["CMD", "python", "-c", "import socket; assert socket.create_connection(('localhost', 5900), 2).recv(3) == b'RFB'; socket.create_connection(('localhost', 6080), 2)"]
       interval: 2s
       retries: 15
 

@@ -3,8 +3,9 @@
 set -e
 # 止めたコンテナをもう一度起動したときに、前回の Xvfb のロックが残っていると起動できないので消す
 rm -f /tmp/.X0-lock /tmp/.X11-unix/X0
-# 画面の大きさは ImageTest のウィンドウと同じにする
-Xvfb :0 -screen 0 "${IMAGETEST_SIZE:-640x480}x24" -nolisten tcp &
+# IMAGETEST_SIZE の確認は ImageTest にまかせる (おかしければここで止まる)
+SIZE=$(PYTHONPATH=/app PYGAME_HIDE_SUPPORT_PROMPT=1 python -P -c 'import ImageTest; print("%dx%d" % ImageTest.screen_size())')
+Xvfb :0 -screen 0 "${SIZE}x24" -nolisten tcp &
 # Xvfb の準備ができるまで待つ (10 秒で諦める)
 for _ in $(seq 100); do [ -e /tmp/.X11-unix/X0 ] && break; sleep 0.1; done
 [ -e /tmp/.X11-unix/X0 ] || { echo 'Xvfb が起動しませんでした' >&2; exit 1; }
