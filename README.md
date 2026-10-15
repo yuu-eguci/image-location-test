@@ -6,7 +6,7 @@ ImageTest
 画像の選択・配置・座標出力は、マウスでもキーボードでもできる。
 
 - Docker: 対応!
-- Python: 3.15!
+- Python: 3.15! (3.14 でも動く)
 - Linter: Ruff!
 - Test: pytest!
 - pygame-ce: 2.5!

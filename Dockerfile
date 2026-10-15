@@ -20,7 +20,7 @@ RUN useradd --create-home --uid 1000 app
 # Xvfb は root 以外だとこのフォルダを作れない
 RUN mkdir -m 1777 /tmp/.X11-unix
 WORKDIR /app
-COPY pyproject.toml uv.lock .python-version ./
+COPY pyproject.toml uv.lock ./
 
 FROM base AS dev
 RUN uv sync --frozen
