@@ -33,6 +33,10 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
 昔の Windows 版の画面。
 今はブラウザの中に表示され、選択中の画像が枠で囲まれる。
 
+![2](media/novnc.png)
+
+今の画面。`dialogbox.png` を選んで (0, 330) に置いたところ。
+
 ## Usage
 
     Select Image Mode
