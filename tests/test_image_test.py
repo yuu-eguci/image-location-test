@@ -523,6 +523,24 @@ def test_b_cycles_background(app, screen, mode_key):
     assert colors[4] == (black, black)
 
 
+def test_g_cycles_grid(app, screen):
+    def lines():
+        app.draw()
+        return [
+            x for x in (8, 9, 16, 32, 40) if screen.get_at((x, 201))[:3] == ImageTest.GRID_COLOR
+        ]
+
+    assert lines() == []
+    app.handle_event(key(pygame.K_g))
+    assert lines() == [8, 16, 32, 40]
+    app.handle_event(key(pygame.K_g))
+    assert lines() == [16, 32]
+    app.handle_event(key(pygame.K_g))
+    assert lines() == [32]
+    app.handle_event(key(pygame.K_g))
+    assert lines() == []
+
+
 def test_h_hides_info_but_not_notice(app, screen):
     corner = (WIDTH - 6, 6)
     app.handle_event(key(pygame.K_h))
@@ -569,6 +587,7 @@ def test_f2_toggles_help_with_all_keys(app):
         'F5',
         'U',
         'B',
+        'G',
         'H',
         'ESC',
     ]:

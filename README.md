@@ -59,6 +59,7 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
                      and mouse position (also from the image's top-left)
         First start (no saved text file): larger images are put behind smaller ones
         B: Change background (black, gray, white, checker)
+        G: Change grid (off, 8px, 16px, 32px)
         H: Hide / show the upper right info and the frame
         F2: Show / hide help
         "*未保存" after the image name: moved but not saved yet

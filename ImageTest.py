@@ -44,6 +44,7 @@ imageフォルダ内の画像を全部表示する。
     Uキーで、ひとつ前の位置と重なり順に戻せるようにした。
     Home, End, PageUp, PageDownで画像を画面の端にぴったり置けるようにした。
     Tabキーでマウスの下にある画像を選べるようにした (押すたびに奥の画像へ)。
+    Gキーで方眼 (8, 16, 32ピクセル) を表示できるようにした。
 """
 
 import os
@@ -66,6 +67,9 @@ FRAMERATE = 20
 FRAME_COLORS = {'select': (255, 255, 0), 'place': (255, 0, 0)}
 # Bキーで切り替える背景 (Noneはチェック柄)
 BACKGROUNDS = [(0, 0, 0), (128, 128, 128), (255, 255, 255), None]
+# Gキーで切り替える方眼の間隔 (0は無し)
+GRID_SPACINGS = [0, 8, 16, 32]
+GRID_COLOR = (0, 255, 255)
 QUIT_WARNING = '保存していません。もう一度押すと終了'
 HELP_TEXT = [
     '<ﾍﾙﾌﾟ> F2:閉じる',
@@ -73,7 +77,7 @@ HELP_TEXT = [
     '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
     '          Home/End/PageUp/PageDown:画面の端へ  X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
     'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U:元に戻す',
-    'B:背景  H:表示を隠す  ESC/Alt+F4:終了',
+    'B:背景  G:方眼  H:表示を隠す  ESC/Alt+F4:終了',
 ]
 
 
@@ -175,6 +179,7 @@ class ImageTest:
         # メッセージを閉じたクリックのまま、ドラッグで画像が動かないようにする
         self.drag_blocked = False
         self.background = 0
+        self.grid = 0
         self.show_info = True
         self.show_help = False
         self.saved_layout = self.layout()
@@ -206,6 +211,7 @@ class ImageTest:
         self.fill_background()
         for image in self.images:
             self.screen.blit(image.surface, tuple(image.xy))
+        self.draw_grid()
         if self.show_info:
             # 選択中の画像を枠で囲む (画像の1ピクセル外側)
             image = self.images[self.num]
@@ -213,6 +219,17 @@ class ImageTest:
             pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
         if self.show_info or self.notice or self.show_help:
             self.blit_text(self.info_text())
+
+    def draw_grid(self):
+        """方眼を描く。"""
+        spacing = GRID_SPACINGS[self.grid]
+        if not spacing:
+            return
+        width, height = self.screen.get_size()
+        for x in range(0, width, spacing):
+            pygame.draw.line(self.screen, GRID_COLOR, (x, 0), (x, height - 1))
+        for y in range(0, height, spacing):
+            pygame.draw.line(self.screen, GRID_COLOR, (0, y), (width - 1, y))
 
     def fill_background(self):
         """背景を塗る。チェック柄は16ピクセルの市松模様。"""
@@ -316,6 +333,8 @@ class ImageTest:
             self.reload()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
             self.background = (self.background + 1) % len(BACKGROUNDS)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_g:
+            self.grid = (self.grid + 1) % len(GRID_SPACINGS)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_h:
             self.show_info = not self.show_info
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
