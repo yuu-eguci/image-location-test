@@ -384,7 +384,11 @@ def test_h_hides_info_but_not_notice(app, screen):
 
 def test_info_text_follows_mode(app):
     assert app.info_text()[0].startswith('<選択モード>')
-    assert app.info_text()[1:] == ['▼ a.png', '  位置: [0, 0]  大きさ: 10x10', '  ﾏｳｽ: (0, 0)']
+    assert app.info_text()[1:] == [
+        '▼ a.png',
+        '  位置: [0, 0]  大きさ: 10x10',
+        '  ﾏｳｽ: (0, 0)  画像内: (0, 0)',
+    ]
     app.handle_event(key(pygame.K_z))
     assert app.info_text()[0].startswith('<配置ﾓｰﾄﾞ>')
     assert app.info_text()[2] == '▼ 位置: [0, 0]  大きさ: 10x10'
@@ -393,8 +397,9 @@ def test_info_text_follows_mode(app):
 
 
 def test_info_text_shows_mouse_position(app):
-    app.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=(7, 8), buttons=(0, 0, 0)))
-    assert app.info_text()[3] == '  ﾏｳｽ: (7, 8)'
+    app.images[0].xy = [10, 10]
+    app.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=(15, 17), buttons=(0, 0, 0)))
+    assert app.info_text()[3] == '  ﾏｳｽ: (15, 17)  画像内: (5, 7)'
 
 
 def test_selected_image_is_framed_by_mode_color(app, screen):
@@ -406,6 +411,9 @@ def test_selected_image_is_framed_by_mode_color(app, screen):
     app.handle_event(key(pygame.K_z))
     app.draw()
     assert screen.get_at((19, 25))[:3] == ImageTest.FRAME_COLORS['place']
+    app.handle_event(key(pygame.K_h))
+    app.draw()
+    assert screen.get_at((19, 25))[:3] == (0, 0, 0)
 
 
 # 前回の配置の読み込み
@@ -419,6 +427,13 @@ def test_restore_positions_applies_saved_positions_and_order(image_dir, tmp_path
     )
     images = ImageTest.restore_positions(ImageTest.create_image_list(image_dir), saved)
     assert [(image.name, image.xy) for image in images] == [('b.png', [5, 6]), ('a.png', [7, -8])]
+
+
+def test_restore_positions_reads_file_with_bom(image_dir, tmp_path):
+    saved = tmp_path / 'saved.txt'
+    saved.write_text('b.png [5, 6]\n', encoding='utf-8-sig')
+    images = ImageTest.restore_positions(ImageTest.create_image_list(image_dir), saved)
+    assert (images[0].name, images[0].xy) == ('b.png', [5, 6])
 
 
 def test_restore_positions_puts_unsaved_images_in_front(image_dir, tmp_path):

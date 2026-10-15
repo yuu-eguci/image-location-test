@@ -37,6 +37,7 @@ imageフォルダ内の画像を全部表示する。
     開けない画像ファイルは飛ばすようにした (前は落ちていた)。
     メッセージを閉じたクリックのままドラッグしても画像が動かないようにした。
     画面の外にある画像をカーソルキーで動かしたときに、画面の端まで飛ばないようにした。
+    Hキーで枠も隠すようにした。マウスの位置は選択中の画像の左上からの位置も表示する。
 """
 
 import os
@@ -116,7 +117,8 @@ def apply_layout(images, layout):
 def restore_positions(images, path):
     """前回テキスト出力した位置と重なり順を読み込む。読めないファイルや行は無視する。"""
     try:
-        lines = path.read_text(encoding='utf-8').splitlines()
+        # エディタで編集してBOMが付いても読めるように utf-8-sig
+        lines = path.read_text(encoding='utf-8-sig').splitlines()
     except OSError, UnicodeDecodeError:
         return images
     matches = (LINE_PATTERN.fullmatch(line) for line in lines)
@@ -159,10 +161,11 @@ class ImageTest:
         self.fill_background()
         for image in self.images:
             self.screen.blit(image.surface, tuple(image.xy))
-        # 選択中の画像を枠で囲む (画像の1ピクセル外側)
-        image = self.images[self.num]
-        frame = image.surface.get_rect(topleft=image.xy).inflate(2, 2)
-        pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
+        if self.show_info:
+            # 選択中の画像を枠で囲む (画像の1ピクセル外側)
+            image = self.images[self.num]
+            frame = image.surface.get_rect(topleft=image.xy).inflate(2, 2)
+            pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
         if self.show_info or self.notice:
             self.blit_text(self.info_text())
 
@@ -185,7 +188,8 @@ class ImageTest:
         image = self.images[self.num]
         width, height = image.surface.get_size()
         position = f'位置: {image.xy}  大きさ: {width}x{height}'
-        mouse = f'  ﾏｳｽ: {self.mouse}'
+        mx, my = self.mouse
+        mouse = f'  ﾏｳｽ: {self.mouse}  画像内: ({mx - image.xy[0]}, {my - image.xy[1]})'
         if self.mode == 'select':
             return [
                 '<選択モード> ﾏｳｽﾎｲｰﾙ:画像選択 左ｸﾘｯｸ:決定 F1:ﾃｷｽﾄ出力',

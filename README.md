@@ -49,9 +49,9 @@ docker compose up --build
 
     Screen
         Selected image: framed (yellow: Select Image Mode, red: Place Image Mode)
-        Upper right: image name, position, size and mouse position
+        Upper right: image name, position, size and mouse position (also from the image's top-left)
         B: Change background (black, gray, white, checker)
-        H: Hide / show the upper right info
+        H: Hide / show the upper right info and the frame
 
     Others
         F1, S, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)
