@@ -1,6 +1,4 @@
-# coding: utf-8
-
-"""pygameアプリ補助ツール ImageTest0.2
+"""pygameアプリ補助ツール ImageTest2.0
 imageフォルダ内の画像を全部表示する。
 画像を選択し、配置し、その座標を見て、そのデータをテキスト出力できる。
 以上の操作はマウスですべて出来るし、キーボードでもすべて出来る。
@@ -17,18 +15,26 @@ imageフォルダ内の画像を全部表示する。
 バージョン1.0(2017-09-25)
     macのためにマウスクリック2をF1に変換するのを追加。
     docをつけました。
+バージョン2.0(2026-10-15)
+    Python 3.15 + pygame-ce に対応 (imghdrは無くなったのでpygameで読めるかで判定)。
+    左クリックだけでも配置できるようにした (前はドラッグしないと動かなかった)。
+    カーソルキーの画面端判定の縦横が逆だったのを修正。
+    Alt+F4判定が、F4と何かの修飾キーで反応していたのを修正。
+    キーの長押しは0.5秒後から連続で動くようにした。
+    テキスト出力をUTF-8にした (SJISで書けないファイル名で落ちていた)。
+    image, otherフォルダはスクリプトの場所から探す。
 """
 
 import sys
-import os
-import pygame
-import imghdr
-from pygame.locals import *
+from pathlib import Path
 
-# ショートカットからの実行だったらカレントディレクトリをexeのあるディレクトリに移す。
-for d in ['image', 'other']:
-    if not os.path.exists(d):
-        os.chdir(os.path.dirname(sys.executable))
+import pygame
+
+BASE_DIR = Path(__file__).resolve().parent
+IMAGE_DIR = BASE_DIR / 'image'
+OTHER_DIR = BASE_DIR / 'other'
+SCREEN_SIZE = (640, 480)
+FRAMERATE = 20
 
 
 class Images:
@@ -39,228 +45,195 @@ class Images:
         xy 座標
     """
 
-    def __init__(self, imagePath, transparence=False):
-        self.name = os.path.basename(imagePath)
-        self.surface = self.createSurface(imagePath, transparence)
+    def __init__(self, image_path):
+        self.name = image_path.name
+        self.surface = pygame.image.load(image_path).convert_alpha()
         self.xy = [0, 0]
-        # 画像の表示状態をimageOrderリストで管理するようになったら必要なくなった
-        # self.put = False
 
-    def createSurface(self, imagePath, transparence):
-        """画像サーフィスを作成する。"""
-        if transparence == False:
-            return pygame.image.load(imagePath).convert_alpha()
-        else:
-            surface = pygame.image.load(imagePath).convert_alpha()
-            surface.set_colorkey(surface.get_at(transparence), RLEACCEL)
-            return surface
 
-    def blit(self):
-        """画面にblitする。"""
-        return screen.blit(self.surface, self.xy)
+def create_image_list(image_dir):
+    """フォルダの画像を全部Imagesインスタンスにしてリストを作る。画像じゃないファイルは飛ばす。"""
+    image_list = []
+    for path in sorted(image_dir.iterdir()):
+        if not path.is_file():
+            continue
+        try:
+            image_list.append(Images(path))
+        except pygame.error:
+            continue
+    return image_list
+
 
 class ImageTest:
-    def __init__(self):
-        pass
+    """画像選択モード('select')と画像配置モード('place')をもつアプリ本体。
+    notice が True の間は「テキスト出力しました」を表示して、何か入力されるまで待つ。
+    """
 
-    def main(self):
-        """ゲームループのあるメソッド。"""
-        package = {
-            'imageList': self.createImageList(),
-            'mode': 'select',
-            'num': 0,
-        }
-        # 長押しを有効化する。間隔はselectに合わせる
-        pygame.key.set_repeat(1, 500)
+    def __init__(self, screen, font, images, output_path=Path('imagetestText.txt')):
+        self.screen = screen
+        self.font = font
+        self.images = images
+        self.output_path = output_path
+        self.mode = 'select'
+        self.num = 0
+        self.notice = False
+        self.running = True
 
-        while True:
-            screen.fill((0,0,0))
-
-            # 画像を置く
-            for instance in package['imageList']:
-                screen.blit(instance.surface, tuple(instance.xy))
-
-            # 画像選択モードと画像配置モード
-            if package['mode'] == 'select':
-                package = self.selectMode(package)
-            elif package['mode'] == 'place':
-                package = self.placeMode(package)
-            elif package['mode'].endswith('__putfile'):
-                package = self.putfileMode(package)
-
+    def run(self):
+        """ゲームループ。"""
+        clock = pygame.time.Clock()
+        while self.running:
+            self.draw()
+            for event in pygame.event.get():
+                self.handle_event(event)
             pygame.display.update()
-            clock.tick(framerate)
+            clock.tick(FRAMERATE)
 
-    def createImageList(self):
-        """imageフォルダの画像を全部Imagesインスタンスにしてリストを作る。"""
-        imageList = []
-        files = os.listdir('image')
-        for file in files:
-            # まずは画像じゃなかったらインスタンスにはしない
-            imageType = imghdr.what('image/' + file)
-            if imageType not in ['jpeg', 'png', 'gif', 'bmp']:
-                continue
-            imageList.append(Images('image/' + file))
-        return imageList
+    def draw(self):
+        """画像を置いて、右上にテキストを表示する。"""
+        self.screen.fill((0, 0, 0))
+        for image in self.images:
+            self.screen.blit(image.surface, tuple(image.xy))
+        self.blit_text(self.info_text())
 
-    def blitText(self, textList):
+    def info_text(self):
+        """右上に表示するテキスト。"""
+        if self.notice:
+            return ['● データをテキスト出力しました ●', '  何かキーを押してください']
+        image = self.images[self.num]
+        if self.mode == 'select':
+            return [
+                '<選択モード> ﾏｳｽﾎｲｰﾙ:画像選択 左ｸﾘｯｸ:決定 F1:ﾃｷｽﾄ出力',
+                '▼ ' + image.name,
+                '  位置: ' + str(image.xy),
+            ]
+        return [
+            '<配置ﾓｰﾄﾞ> 左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:画像配置 右ｸﾘｯｸ:戻る F1:ﾃｷｽﾄ出力',
+            '  ' + image.name,
+            '▼ 位置: ' + str(image.xy),
+        ]
+
+    def blit_text(self, text_list):
         """Rect作ってその上にtext載せる"""
-        # メッセージボックスの大きさを求める (一番長い行の幅+10, フォントの高さ*行数+10)
-        width = 0
-        for line in textList:
-            textSize = font.size(line)
-            width = textSize[0] if width < textSize[0] else width
-        width += 10
-        height = textSize[1] * len(textList) + 10
+        # メッセージボックスの大きさを求める (一番長い行の幅+10, 行の高さ*行数+10)
+        width = max(self.font.size(line)[0] for line in text_list) + 10
+        height = self.font.get_linesize() * len(text_list) + 10
         # 右上にRect配置
-        pygame.draw.rect(screen, (255,255,255),
-            Rect(screenSize[0]-width-5, 5, width, height))
+        screen_width = self.screen.get_width()
+        pygame.draw.rect(
+            self.screen, (255, 255, 255), pygame.Rect(screen_width - width - 5, 5, width, height)
+        )
         # テキストを置く
-        lineNum = 0
-        for line in textList:
-            text = font.render(line, True, (0,0,0))
-            screen.blit(text, (screenSize[0]-width, 10+font.get_linesize()*lineNum))
-            lineNum += 1
+        for line_num, line in enumerate(text_list):
+            text = self.font.render(line, True, (0, 0, 0))
+            self.screen.blit(text, (screen_width - width, 10 + self.font.get_linesize() * line_num))
 
-    def selectMode(self, package):
+    def handle_event(self, event):
+        """イベントをひとつ処理する。"""
+        if event.type == pygame.QUIT:
+            self.running = False
+        elif self.notice:
+            # 何か入力があるまで「テキスト出力しました」を表示する
+            if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                self.notice = False
+        elif event.type == pygame.KEYDOWN and (
+            event.key == pygame.K_ESCAPE
+            or (event.key == pygame.K_F4 and event.mod & pygame.KMOD_ALT)
+        ):
+            self.running = False
+        elif (event.type == pygame.KEYDOWN and event.key == pygame.K_F1) or (
+            # F1の代替。
+            event.type == pygame.MOUSEBUTTONDOWN and event.button == 2
+        ):
+            self.putfile()
+            self.notice = True
+        elif self.mode == 'select':
+            self.select_mode(event)
+        else:
+            self.place_mode(event)
+
+    def select_mode(self, event):
         """画像選択モード
-        上下:選択
-        Z:画像配置モードへ
+        上下, マウスホイール:選択
+        Z, 左クリック:画像配置モードへ
         """
-        # 右上にテキスト表示する
-        text1 = '<選択モード> ﾏｳｽﾎｲｰﾙ:画像選択 左ｸﾘｯｸ:決定 F1:ﾃｷｽﾄ出力'
-        text2 = '▼ ' + package['imageList'][package['num']].name
-        text3 = '  位置: ' + str(package['imageList'][package['num']].xy)
-        self.blitText([text1, text2, text3])
+        last = len(self.images) - 1
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP:
+                self.num = self.num - 1 if self.num != 0 else last
+            if event.key == pygame.K_DOWN:
+                self.num = self.num + 1 if self.num != last else 0
+            if event.key == pygame.K_z:
+                self.change_image_order()
+                self.mode = 'place'
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                self.change_image_order()
+                self.mode = 'place'
+            # マウスホイール上下
+            if event.button == 4:
+                self.num = self.num + 1 if self.num != last else 0
+            if event.button == 5:
+                self.num = self.num - 1 if self.num != 0 else last
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                sys.exit()
-            if event.type == KEYDOWN:
-                if event.key == K_F4 and bool(event.mod and KMOD_ALT):
-                    sys.exit()
-                if event.key == K_ESCAPE:
-                    sys.exit()
-                if event.key == K_F1:
-                    self.putfile(package)
-                    package['mode'] = package['mode'] + '__putfile'
-                num = package['num']
-                if event.key == K_UP:
-                    package['num'] = num-1 if num != 0 else len(package['imageList'])-1
-                if event.key == K_DOWN:
-                    package['num'] = num+1 if num != len(package['imageList'])-1 else 0
-                if event.key == K_z:
-                    package = self.changeImageOrder(package)
-                    package['mode'] = 'place'
-            if event.type == MOUSEBUTTONDOWN:
-                num = package['num']
-                # 左クリック
-                if event.button == 1:
-                    package = self.changeImageOrder(package)
-                    package['mode'] = 'place'
-                # マウスホイール上下
-                if event.button == 4:
-                    package['num'] = num+1 if num != len(package['imageList'])-1 else 0
-                if event.button == 5:
-                    package['num'] = num-1 if num != 0 else len(package['imageList'])-1
-                # F1の代替。
-                if event.button == 2:
-                    self.putfile(package)
-                    package['mode'] = package['mode'] + '__putfile'
-        return package
-
-    def changeImageOrder(self, package):
+    def change_image_order(self):
         """現在選択されてる画像をリストの最後(最前面)にもってくる。
         背景画像が前面に出てしまったときの対策。"""
-        selected = package['imageList'][package['num']]
-        del package['imageList'][package['num']]
-        package['imageList'].append(selected)
-        package['num'] = len(package['imageList']) - 1
-        return package
+        self.images.append(self.images.pop(self.num))
+        self.num = len(self.images) - 1
 
-    def placeMode(self, package):
+    def place_mode(self, event):
         """画像配置モード
-        マウスクリック:その座標に配置
-        X:画像選択モードへ
+        マウスクリック, ドラッグ:その座標に配置
+        カーソルキー:1ピクセルずつ移動
+        X, 右クリック:画像選択モードへ
         """
-        # 右上にテキスト表示する
-        text1 = '<配置ﾓｰﾄﾞ> 左ﾄﾞﾗｯｸﾞ:画像配置 右ｸﾘｯｸ:戻る F1:ﾃｷｽﾄ出力'
-        text2 = '  ' + package['imageList'][package['num']].name
-        text3 = '▼ 位置: ' + str(package['imageList'][package['num']].xy)
-        self.blitText([text1, text2, text3])
+        image = self.images[self.num]
+        x, y = image.xy
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_x:
+                self.mode = 'select'
+            # 上下左右で画像移動 (画面の外には出さない)
+            if event.key == pygame.K_UP:
+                image.xy[1] = max(y - 1, 0)
+            if event.key == pygame.K_DOWN:
+                image.xy[1] = min(y + 1, self.screen.get_height() - 1)
+            if event.key == pygame.K_LEFT:
+                image.xy[0] = max(x - 1, 0)
+            if event.key == pygame.K_RIGHT:
+                image.xy[0] = min(x + 1, self.screen.get_width() - 1)
+        # マウスクリック(左)とドラッグ(左)で画像移動
+        if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1) or (
+            event.type == pygame.MOUSEMOTION and event.buttons[0]
+        ):
+            image.xy = list(event.pos)
+        # マウスクリック(右)で戻る
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            self.mode = 'select'
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                sys.exit()
-            if event.type == KEYDOWN:
-                if event.key == K_F4 and bool(event.mod and KMOD_ALT):
-                    sys.exit()
-                if event.key == K_ESCAPE:
-                    sys.exit()
-                if event.key == K_F1:
-                    self.putfile(package)
-                    package['mode'] = package['mode'] + '__putfile'
-                if event.key == K_x:
-                    package['mode'] = 'select'
-                # 上下左右で画像移動
-                x = package['imageList'][package['num']].xy[0]
-                y = package['imageList'][package['num']].xy[1]
-                if event.key == K_UP:
-                    package['imageList'][package['num']].xy[1] = y-1 if y != 0 else y
-                if event.key == K_DOWN:
-                    package['imageList'][package['num']].xy[1] = y+1 if y != screenSize[0] else y
-                if event.key == K_LEFT:
-                    package['imageList'][package['num']].xy[0] = x-1 if x != 0 else x
-                if event.key == K_RIGHT:
-                    package['imageList'][package['num']].xy[0] = x+1 if x != screenSize[1] else x
-            # マウスドラッグ(左)でも画像移動
-            if pygame.mouse.get_pressed()[0]:
-                pos = pygame.mouse.get_pos()
-                package['imageList'][package['num']].xy = [pos[0], pos[1]]
-            # マウスクリック(右)で戻る
-            if event.type == MOUSEBUTTONDOWN:
-                if event.button == 3:
-                    package['mode'] = 'select'
-                # F1の代替。
-                if event.button == 2:
-                    self.putfile(package)
-                    package['mode'] = package['mode'] + '__putfile'
-        return package
-
-    def putfile(self, package):
+    def putfile(self):
         """画像の一覧をテキスト出力する。"""
-        text = ''
-        for instance in package['imageList']:
-            text += instance.name + ' ' + str(instance.xy) + '\n'
-        with open('imagetestText.txt', encoding='SJIS', mode='w') as f:
-            f.write(text)
+        text = ''.join(f'{image.name} {image.xy}\n' for image in self.images)
+        self.output_path.write_text(text, encoding='utf-8')
 
-    def putfileMode(self, package):
-        """入力があるまで「テキスト出力しました」を表示する。"""
-        text0 = '● データをテキスト出力しました ●'
-        text1 = '  何かキーを押してください'
-        self.blitText([text0, text1])
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                sys.exit()
-            if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN:
-                # rstripは'select'を'selec'にするのでreplaceを使う
-                package['mode'] = package['mode'].replace('__putfile', '')
-        return package
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode(SCREEN_SIZE)
+    icon = pygame.image.load(OTHER_DIR / 'pythongreen32x32.png').convert_alpha()
+    icon.set_colorkey(icon.get_at((0, 0)), pygame.RLEACCEL)
+    pygame.display.set_icon(icon)
+    pygame.display.set_caption('画像配置テスト ESCキーで終了できます')
+    # 長押しを有効化する。0.5秒押し続けたら、あとはフレームごとくらいの間隔で動く
+    pygame.key.set_repeat(500, 50)
+    font = pygame.font.Font(OTHER_DIR / 'VL-Gothic-Regular.ttf', 12)
+    images = create_image_list(IMAGE_DIR)
+    if not images:
+        pygame.quit()
+        sys.exit(f'{IMAGE_DIR} に画像がありません。')
+    ImageTest(screen, font, images).run()
+    pygame.quit()
 
 
 if __name__ == '__main__':
-    pygame.init()
-    screenSize = (640, 480)
-    screen = pygame.display.set_mode(screenSize)
-    icon = pygame.image.load('other/pythongreen32x32.png').convert_alpha()
-    icon.set_colorkey(icon.get_at((0,0)), RLEACCEL)
-    pygame.display.set_icon(icon)
-    pygame.display.set_caption('画像配置テスト ESCキーで終了できます')
-    font = pygame.font.Font('other/VL-Gothic-Regular.ttf', 12)
-    clock = pygame.time.Clock()
-    framerate = 20
-
-    instance = ImageTest()
-    instance.main()
+    main()

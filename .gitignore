@@ -1,9 +1,12 @@
-
 *~
 .DS_Store
 __pycache__/
+.venv/
+.ruff_cache/
+.pytest_cache/
 
 imagetestText.txt
+output/*
 
 # これは最後に書かないとダメ。
 !.gitkeep
