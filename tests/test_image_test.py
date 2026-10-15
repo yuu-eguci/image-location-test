@@ -101,6 +101,33 @@ def test_mouse_wheel_chooses_image_like_up_down_keys(screen, font):
     assert app.num == 3
 
 
+def move_mouse(app, pos):
+    app.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=pos, buttons=(0, 0, 0)))
+
+
+def test_tab_chooses_images_under_mouse_from_front_to_back(app):
+    app.images[0].xy = [5, 5]  # a.png (奥) は (5, 5)-(15, 15), b.png (手前) は (0, 0)-(10, 10)
+    move_mouse(app, (7, 7))
+    app.handle_event(key(pygame.K_TAB))
+    assert app.images[app.num].name == 'b.png'
+    app.handle_event(key(pygame.K_TAB))
+    assert app.images[app.num].name == 'a.png'
+    app.handle_event(key(pygame.K_TAB))
+    assert app.images[app.num].name == 'b.png'
+    move_mouse(app, (12, 12))
+    app.handle_event(key(pygame.K_TAB))
+    assert app.images[app.num].name == 'a.png'
+    assert app.mode == 'select'
+    assert names(app) == ['a.png', 'b.png']
+
+
+def test_tab_does_nothing_without_image_under_mouse(app):
+    app.handle_event(key(pygame.K_DOWN))
+    move_mouse(app, (300, 300))
+    app.handle_event(key(pygame.K_TAB))
+    assert app.num == 1
+
+
 def test_z_brings_selected_image_to_front_and_enters_place_mode(app):
     app.handle_event(key(pygame.K_z))
     assert names(app) == ['b.png', 'a.png']
@@ -530,7 +557,21 @@ def test_f2_toggles_help_with_all_keys(app):
     app.handle_event(key(pygame.K_F2))
     help_text = '\n'.join(app.info_text())
     assert app.info_text()[0].startswith('<ﾍﾙﾌﾟ>')
-    for word in ['Z', 'X', 'Shift', 'Home', 'PageDown', 'F1', 'S', 'F5', 'U', 'B', 'H', 'ESC']:
+    for word in [
+        'Tab',
+        'Z',
+        'X',
+        'Shift',
+        'Home',
+        'PageDown',
+        'F1',
+        'S',
+        'F5',
+        'U',
+        'B',
+        'H',
+        'ESC',
+    ]:
         assert word in help_text
     app.handle_event(key(pygame.K_F2))
     assert app.info_text()[0].startswith('<選択モード>')

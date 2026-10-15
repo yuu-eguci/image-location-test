@@ -41,6 +41,7 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
             Left Click: To Place Image Mode
         Keyboard
             Up, Down: Choose images
+            Tab: Choose the images under the mouse (front first, press again to go behind)
             Z: To Place Image Mode
 
     Place Image Mode

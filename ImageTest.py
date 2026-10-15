@@ -43,6 +43,7 @@ imageフォルダ内の画像を全部表示する。
     保存したファイルが無いときは、大きい画像ほど奥に置くようにした (背景で全部隠れないように)。
     Uキーで、ひとつ前の位置と重なり順に戻せるようにした。
     Home, End, PageUp, PageDownで画像を画面の端にぴったり置けるようにした。
+    Tabキーでマウスの下にある画像を選べるようにした (押すたびに奥の画像へ)。
 """
 
 import os
@@ -68,7 +69,7 @@ BACKGROUNDS = [(0, 0, 0), (128, 128, 128), (255, 255, 255), None]
 QUIT_WARNING = '保存していません。もう一度押すと終了'
 HELP_TEXT = [
     '<ﾍﾙﾌﾟ> F2:閉じる',
-    '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Z/左ｸﾘｯｸ:配置ﾓｰﾄﾞへ',
+    '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Tab:ﾏｳｽの下の画像  Z/左ｸﾘｯｸ:配置ﾓｰﾄﾞへ',
     '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
     '          Home/End/PageUp/PageDown:画面の端へ  X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
     'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U:元に戻す',
@@ -88,6 +89,10 @@ class Images:
         self.name = image_path.name
         self.surface = pygame.image.load(image_path).convert_alpha()
         self.xy = [0, 0]
+
+    def rect(self):
+        """画面上で画像がある範囲。"""
+        return self.surface.get_rect(topleft=self.xy)
 
 
 def screen_size():
@@ -204,7 +209,7 @@ class ImageTest:
         if self.show_info:
             # 選択中の画像を枠で囲む (画像の1ピクセル外側)
             image = self.images[self.num]
-            frame = image.surface.get_rect(topleft=image.xy).inflate(2, 2)
+            frame = image.rect().inflate(2, 2)
             pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
         if self.show_info or self.notice or self.show_help:
             self.blit_text(self.info_text())
@@ -323,6 +328,7 @@ class ImageTest:
     def select_mode(self, event):
         """画像選択モード
         上下, マウスホイール:選択
+        Tab:マウスの下の画像を手前から選択
         Z, 左クリック:画像配置モードへ
         """
         last = len(self.images) - 1
@@ -331,6 +337,8 @@ class ImageTest:
                 self.num = self.num - 1 if self.num != 0 else last
             if event.key == pygame.K_DOWN:
                 self.num = self.num + 1 if self.num != last else 0
+            if event.key == pygame.K_TAB:
+                self.choose_under_mouse()
             if event.key == pygame.K_z:
                 self.change_image_order()
                 self.mode = 'place'
@@ -343,6 +351,15 @@ class ImageTest:
                 self.num = self.num - 1 if self.num != 0 else last
             if event.button == 5:
                 self.num = self.num + 1 if self.num != last else 0
+
+    def choose_under_mouse(self):
+        """マウスの下にある画像を手前から選ぶ。もう一度呼ぶと、その奥の画像を選ぶ。"""
+        nums = reversed(range(len(self.images)))
+        under = [num for num in nums if self.images[num].rect().collidepoint(self.mouse)]
+        if not under:
+            return
+        next_index = under.index(self.num) + 1 if self.num in under else 0
+        self.num = under[next_index % len(under)]
 
     def change_image_order(self):
         """現在選択されてる画像をリストの最後(最前面)にもってくる。
