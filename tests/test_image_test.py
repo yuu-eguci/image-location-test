@@ -333,6 +333,83 @@ def test_u_undoes_a_whole_drag_at_once(placing):
     assert image.xy == [0, 0]
 
 
+def release(pos=(0, 0)):
+    return pygame.event.Event(pygame.MOUSEBUTTONUP, button=1, pos=pos)
+
+
+def drag(app, start, end):
+    app.handle_event(click(1, pos=start))
+    app.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=end, buttons=(1, 0, 0)))
+    app.handle_event(release(end))
+
+
+def test_u_undoes_drag_of_front_image_started_in_select_mode(app):
+    app.handle_event(key(pygame.K_DOWN))  # b.png はもう一番手前なので、クリックで並びは変わらない
+    drag(app, (5, 5), (100, 100))
+    assert app.images[app.num].xy == [100, 100]
+    app.handle_event(key(pygame.K_u))
+    assert app.images[app.num].xy == [0, 0]
+
+
+def test_u_undoes_drag_started_on_top_left_and_previous_move_separately(placing):
+    image = placing.images[placing.num]
+    drag(placing, (50, 50), (50, 50))
+    drag(placing, (50, 50), (200, 200))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [50, 50]
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+
+
+def test_click_without_change_is_not_an_undo_step(placing):
+    image = placing.images[placing.num]
+    drag(placing, (30, 30), (30, 30))
+    drag(placing, (30, 30), (30, 30))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+    assert names(placing) == ['b.png', 'a.png']
+
+
+def test_u_during_drag_cancels_the_drag(placing):
+    image = placing.images[placing.num]
+    placing.handle_event(click(1, pos=(10, 10)))
+    placing.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=(20, 20), buttons=(1, 0, 0)))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+    placing.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=(41, 41), buttons=(1, 0, 0)))
+    placing.handle_event(release((41, 41)))
+    assert image.xy == [0, 0]
+    placing.handle_event(key(pygame.K_u))
+    assert names(placing) == ['a.png', 'b.png']
+
+
+def test_same_key_in_a_row_is_one_undo_step(placing):
+    image = placing.images[placing.num]
+    image.xy = [10, 10]
+    for _ in range(3):
+        placing.handle_event(key(pygame.K_RIGHT))
+    placing.handle_event(key(pygame.K_DOWN))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [13, 10]
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [10, 10]
+
+
+def test_reload_is_not_an_undo_step(app, image_dir):
+    app.handle_event(key(pygame.K_z))
+    save_png(image_dir / 'c.png')
+    app.handle_event(key(pygame.K_F5))
+    app.handle_event(key(pygame.K_u))
+    assert names(app) == ['a.png', 'b.png', 'c.png']
+
+
+def test_undo_history_is_limited(placing):
+    for x in range(ImageTest.HISTORY_LIMIT + 10):
+        placing.handle_event(click(1, pos=(x + 1, 0)))
+        placing.handle_event(release())
+    assert len(placing.history) == ImageTest.HISTORY_LIMIT
+
+
 def test_u_undoes_reorder_and_keeps_selection(app):
     app.handle_event(key(pygame.K_z))
     assert names(app) == ['b.png', 'a.png']
@@ -576,6 +653,16 @@ def test_magnifier_shows_black_outside_screen(app, screen):
     assert loupe_cell(app, screen, 0, -5) == (0, 0, 255)
     assert loupe_cell(app, screen, -1, 0) == (0, 0, 0)
     assert loupe_cell(app, screen, -1, -5) == (0, 0, 0)
+
+
+def test_magnifier_is_drawn_over_the_frame(app, screen):
+    app.images[0].xy = [20, HEIGHT - 70]  # 選択中の a.png の枠が拡大表示の場所を通る
+    move_mouse(app, (300, 100))
+    app.draw()
+    assert screen.get_at((19, HEIGHT - 65))[:3] == ImageTest.FRAME_COLORS['select']
+    app.handle_event(key(pygame.K_m))
+    app.draw()
+    assert screen.get_at((19, HEIGHT - 65))[:3] == (0, 0, 0)
 
 
 def test_h_hides_info_but_not_notice(app, screen):

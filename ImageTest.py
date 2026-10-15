@@ -16,7 +16,7 @@ imageフォルダ内の画像を全部表示する。
     macのためにマウスクリック2をF1に変換するのを追加。
     docをつけました。
 バージョン2.0(2026-10-15)
-    Python 3.15 + pygame-ce に対応 (imghdrは無くなったのでpygameで読めるかで判定)。
+    Python 3.14以上 + pygame-ce に対応 (imghdrは無くなったのでpygameで読めるかで判定)。
     左クリックだけでも配置できるようにした (前はドラッグしないと動かなかった)。
     カーソルキーの画面端判定の縦横が逆だったのを修正。
     Alt+F4判定が、F4と何かの修飾キーで反応していたのを修正。
@@ -74,6 +74,8 @@ GRID_COLOR = (0, 255, 255)
 # Mキーの拡大表示: マウスのまわり LOUPE_SIZE ピクセル四方を LOUPE_SCALE 倍で左下に出す
 LOUPE_SIZE = 15
 LOUPE_SCALE = 8
+# Uキーで戻れる回数
+HISTORY_LIMIT = 100
 QUIT_WARNING = '保存していません。もう一度押すと終了'
 HELP_TEXT = [
     '<ﾍﾙﾌﾟ> F2:閉じる',
@@ -190,6 +192,9 @@ class ImageTest:
         self.saved_layout = self.layout()
         # Uキーで戻すための、変更前の (画像名, 位置) の並び
         self.history = []
+        # 左ボタンを押している間 True。同じキーを続けて押したら1回分として覚えるための、前のキー
+        self.pressed = False
+        self.last_key = None
         self.running = True
 
     def layout(self):
@@ -217,13 +222,15 @@ class ImageTest:
         for image in self.images:
             self.screen.blit(image.surface, tuple(image.xy))
         self.draw_grid()
-        if self.show_loupe:
-            self.draw_loupe()
+        # 拡大表示は枠より上に出すが、中身は枠を描く前の画面
+        area = self.mouse_area() if self.show_loupe else None
         if self.show_info:
             # 選択中の画像を枠で囲む (画像の1ピクセル外側)
             image = self.images[self.num]
             frame = image.rect().inflate(2, 2)
             pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
+        if area:
+            self.draw_loupe(area)
         if self.show_info or self.notice or self.show_help:
             self.blit_text(self.info_text())
 
@@ -238,12 +245,17 @@ class ImageTest:
         for y in range(0, height, spacing):
             pygame.draw.line(self.screen, GRID_COLOR, (0, y), (width - 1, y))
 
-    def draw_loupe(self):
-        """マウスのまわりを拡大して左下に表示する。真ん中の赤い枠がマウスのピクセル。画面の外は黒。"""
+    def mouse_area(self):
+        """マウスのまわり LOUPE_SIZE ピクセル四方の画面のコピー。画面の外は黒。"""
         mx, my = self.mouse
         half = LOUPE_SIZE // 2
         area = pygame.Surface((LOUPE_SIZE, LOUPE_SIZE))
         area.blit(self.screen, (0, 0), pygame.Rect(mx - half, my - half, LOUPE_SIZE, LOUPE_SIZE))
+        return area
+
+    def draw_loupe(self, area):
+        """area を拡大して左下に表示する。真ん中の赤い枠がマウスのピクセル。"""
+        half = LOUPE_SIZE // 2
         zoomed = pygame.transform.scale_by(area, LOUPE_SCALE)
         left, top = 5, self.screen.get_height() - 5 - zoomed.get_height()
         self.screen.blit(zoomed, (left, top))
@@ -306,23 +318,54 @@ class ImageTest:
             self.screen.blit(text, (screen_width - width, 10 + self.font.get_linesize() * line_num))
 
     def handle_event(self, event):
-        """イベントをひとつ処理する。位置か重なり順が変わったら、元に戻せるように覚えておく。
-        ドラッグ中のマウス移動は覚えないので、ドラッグはまとめて1回で戻る。"""
+        """イベントをひとつ処理する。位置か重なり順が変わったら、元に戻せるように変更前を覚えておく。
+        クリックとそのままのドラッグは1回分、同じキーを続けて押したのも1回分。F5の読みなおしは覚えない。"""
         if event.type == pygame.KEYDOWN and event.key == pygame.K_u and not self.notice:
             self.undo()
+            # ドラッグ中なら、そのドラッグはやめる
+            self.drag_blocked = self.pressed
             return
+        notice = self.notice
         before = self.layout()
         self.process(event)
-        if event.type != pygame.MOUSEMOTION and self.layout() != before:
-            self.history.append(before)
+        if event.type == pygame.KEYDOWN and event.key != pygame.K_F5:
+            changed = self.layout() != before
+            if changed and event.key != self.last_key:
+                self.remember(before)
+            self.last_key = event.key if changed else None
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # このあとドラッグするかもしれないので、変わっていなくても覚えておく
+            self.pressed = True
+            self.last_key = None
+            if not notice:
+                self.remember(before)
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            # 結局なにも変わらなかったクリックは忘れる
+            self.pressed = False
+            if self.history and self.history[-1] == self.layout():
+                self.history.pop()
+
+    def remember(self, layout):
+        """元に戻せるように並びを覚える。"""
+        if self.history and self.history[-1] == layout:
+            return
+        self.history = [*self.history, layout][-HISTORY_LIMIT:]
 
     def undo(self):
         """ひとつ前の位置と重なり順に戻す。選択中の画像はそのまま。"""
-        if not self.history:
-            return
-        selected = self.images[self.num].name
-        self.images = apply_layout(self.images, self.history.pop())
-        self.num = [image.name for image in self.images].index(selected)
+        if self.history:
+            self.select_by_name(self.images[self.num].name, self.history.pop())
+
+    def select_by_name(self, name, layout, images=None):
+        """images (省略したら今の画像) を layout の並びにして、name の画像を選びなおす。
+        name の画像が無くなっていたら、選択モードで最初の画像を選ぶ。"""
+        self.images = apply_layout(self.images if images is None else images, layout)
+        names = [image.name for image in self.images]
+        if name in names:
+            self.num = names.index(name)
+        else:
+            self.num = 0
+            self.mode = 'select'
 
     def process(self, event):
         """イベントをひとつ処理する (元に戻す以外)。"""
@@ -372,12 +415,11 @@ class ImageTest:
         Tab:マウスの下の画像を手前から選択
         Z, 左クリック:画像配置モードへ
         """
-        last = len(self.images) - 1
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
-                self.num = self.num - 1 if self.num != 0 else last
+                self.choose_next(-1)
             if event.key == pygame.K_DOWN:
-                self.num = self.num + 1 if self.num != last else 0
+                self.choose_next(1)
             if event.key == pygame.K_TAB:
                 self.choose_under_mouse()
             if event.key == pygame.K_z:
@@ -389,9 +431,13 @@ class ImageTest:
                 self.mode = 'place'
             # マウスホイール上下 (上下キーと同じ向き)
             if event.button == 4:
-                self.num = self.num - 1 if self.num != 0 else last
+                self.choose_next(-1)
             if event.button == 5:
-                self.num = self.num + 1 if self.num != last else 0
+                self.choose_next(1)
+
+    def choose_next(self, step):
+        """ひとつ前 (-1) か次 (1) の画像を選ぶ。端まで行ったら反対の端へ。"""
+        self.num = (self.num + step) % len(self.images)
 
     def choose_under_mouse(self):
         """マウスの下にある画像を手前から選ぶ。もう一度呼ぶと、その奥の画像を選ぶ。"""
@@ -456,15 +502,7 @@ class ImageTest:
         if not images:
             self.notice = f'{self.image_dir} に画像がありません'
             return
-        selected = self.images[self.num].name
-        self.images = apply_layout(images, [(image.name, image.xy) for image in self.images])
-        names = [image.name for image in self.images]
-        if selected in names:
-            self.num = names.index(selected)
-        else:
-            # 選んでいた画像が無くなったら、選びなおしてもらう
-            self.num = 0
-            self.mode = 'select'
+        self.select_by_name(self.images[self.num].name, self.layout(), images)
 
     def putfile(self):
         """画像の一覧をテキスト出力する。書き込めなかったら理由を表示する。"""

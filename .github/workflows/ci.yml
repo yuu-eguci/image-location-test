@@ -12,6 +12,7 @@ jobs:
   lint-test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.14", "3.15"]
     steps:
@@ -22,8 +23,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --frozen
-      - run: uv run ruff check
-      - run: uv run ruff format --check
+      - if: matrix.python-version == '3.15'
+        run: uv run ruff check
+      - if: matrix.python-version == '3.15'
+        run: uv run ruff format --check
       - run: uv run pytest
 
   docker:
