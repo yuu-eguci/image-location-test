@@ -29,7 +29,7 @@ docker compose up --build
 
     Select Image Mode
         Mouse
-            Mouse wheel: Choose images
+            Mouse wheel: Choose images (up = previous, down = next)
             Left Click: To Place Image Mode
         Keyboard
             Up, Down: Choose images
@@ -47,10 +47,14 @@ docker compose up --build
         F1, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)
         ESC, Alt+F4: Quit
 
-テキストはこんな感じで、1 行に 1 画像の名前と座標 `[x, y]` が並ぶ。
+テキストはこんな感じで、1 行に 1 画像の名前と座標 `[x, y]` が、奥にある画像から順に並ぶ。
+Docker なら `output/`、Docker を使わないときは起動したフォルダに書かれる。
+書き込めなかったときは、右上にその理由が出る。
 
-    dialogbox.png [0, 330]
+    lecturer.png [0, 0]
+    pupil.png [0, 0]
     skype.png [0, 0]
+    dialogbox.png [0, 330]
 
 ## 開発
 

@@ -23,6 +23,8 @@ imageフォルダ内の画像を全部表示する。
     キーの長押しは0.5秒後から連続で動くようにした。
     テキスト出力をUTF-8にした (SJISで書けないファイル名で落ちていた)。
     image, otherフォルダはスクリプトの場所から探す。
+    マウスホイールの向きを上下キーに合わせた (上で前の画像、下で次の画像)。
+    テキスト出力できなかったときは落ちないで、理由を表示する。
 """
 
 import sys
@@ -54,6 +56,8 @@ class Images:
 def create_image_list(image_dir):
     """フォルダの画像を全部Imagesインスタンスにしてリストを作る。画像じゃないファイルは飛ばす。"""
     image_list = []
+    if not image_dir.is_dir():
+        return image_list
     for path in sorted(image_dir.iterdir()):
         if not path.is_file():
             continue
@@ -66,7 +70,7 @@ def create_image_list(image_dir):
 
 class ImageTest:
     """画像選択モード('select')と画像配置モード('place')をもつアプリ本体。
-    notice が True の間は「テキスト出力しました」を表示して、何か入力されるまで待つ。
+    notice にメッセージが入っている間はそれを表示して、何か入力されるまで待つ。
     """
 
     def __init__(self, screen, font, images, output_path=Path('imagetestText.txt')):
@@ -76,16 +80,16 @@ class ImageTest:
         self.output_path = output_path
         self.mode = 'select'
         self.num = 0
-        self.notice = False
+        self.notice = None
         self.running = True
 
     def run(self):
         """ゲームループ。"""
         clock = pygame.time.Clock()
         while self.running:
-            self.draw()
             for event in pygame.event.get():
                 self.handle_event(event)
+            self.draw()
             pygame.display.update()
             clock.tick(FRAMERATE)
 
@@ -99,7 +103,7 @@ class ImageTest:
     def info_text(self):
         """右上に表示するテキスト。"""
         if self.notice:
-            return ['● データをテキスト出力しました ●', '  何かキーを押してください']
+            return ['● ' + self.notice + ' ●', '  何かキーを押してください']
         image = self.images[self.num]
         if self.mode == 'select':
             return [
@@ -133,9 +137,9 @@ class ImageTest:
         if event.type == pygame.QUIT:
             self.running = False
         elif self.notice:
-            # 何か入力があるまで「テキスト出力しました」を表示する
+            # 何か入力があるまでメッセージを表示する
             if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
-                self.notice = False
+                self.notice = None
         elif event.type == pygame.KEYDOWN and (
             event.key == pygame.K_ESCAPE
             or (event.key == pygame.K_F4 and event.mod & pygame.KMOD_ALT)
@@ -146,7 +150,6 @@ class ImageTest:
             event.type == pygame.MOUSEBUTTONDOWN and event.button == 2
         ):
             self.putfile()
-            self.notice = True
         elif self.mode == 'select':
             self.select_mode(event)
         else:
@@ -170,11 +173,11 @@ class ImageTest:
             if event.button == 1:
                 self.change_image_order()
                 self.mode = 'place'
-            # マウスホイール上下
+            # マウスホイール上下 (上下キーと同じ向き)
             if event.button == 4:
-                self.num = self.num + 1 if self.num != last else 0
-            if event.button == 5:
                 self.num = self.num - 1 if self.num != 0 else last
+            if event.button == 5:
+                self.num = self.num + 1 if self.num != last else 0
 
     def change_image_order(self):
         """現在選択されてる画像をリストの最後(最前面)にもってくる。
@@ -212,9 +215,14 @@ class ImageTest:
             self.mode = 'select'
 
     def putfile(self):
-        """画像の一覧をテキスト出力する。"""
+        """画像の一覧をテキスト出力する。書き込めなかったら理由を表示する。"""
         text = ''.join(f'{image.name} {image.xy}\n' for image in self.images)
-        self.output_path.write_text(text, encoding='utf-8')
+        try:
+            self.output_path.write_text(text, encoding='utf-8')
+        except OSError as error:
+            self.notice = f'テキスト出力できませんでした ({error.strerror})'
+        else:
+            self.notice = 'データをテキスト出力しました'
 
 
 def main():

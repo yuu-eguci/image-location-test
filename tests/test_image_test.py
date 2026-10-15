@@ -46,6 +46,10 @@ def test_create_image_list_loads_only_images_in_name_order(image_dir):
     assert all(image.xy == [0, 0] for image in images)
 
 
+def test_create_image_list_is_empty_without_folder(tmp_path, screen):
+    assert ImageTest.create_image_list(tmp_path / 'missing') == []
+
+
 def test_create_image_list_reads_bundled_images(screen):
     images = ImageTest.create_image_list(ImageTest.IMAGE_DIR)
     assert [image.name for image in images] == [
@@ -74,13 +78,13 @@ def test_up_down_keys_choose_image_and_wrap(app):
     assert app.num == 1
 
 
-def test_mouse_wheel_chooses_image(app):
+def test_mouse_wheel_chooses_image_like_up_down_keys(screen, font):
+    app = ImageTest.ImageTest(screen, font, ImageTest.create_image_list(ImageTest.IMAGE_DIR))
+    app.handle_event(click(5))
+    assert app.num == 1
     app.handle_event(click(4))
-    assert app.num == 1
-    app.handle_event(click(5))
-    assert app.num == 0
-    app.handle_event(click(5))
-    assert app.num == 1
+    app.handle_event(click(4))
+    assert app.num == 3
 
 
 def test_z_brings_selected_image_to_front_and_enters_place_mode(app):
@@ -176,6 +180,13 @@ def test_text_output_is_utf8_for_any_file_name(tmp_path, screen, font):
     assert (tmp_path / 'out.txt').read_text(encoding='utf-8') == '画像😀.png [0, 0]\n'
 
 
+def test_text_output_error_is_shown_instead_of_crashing(app, tmp_path):
+    app.output_path = tmp_path  # フォルダには書き込めない
+    app.handle_event(key(pygame.K_F1))
+    assert app.running
+    assert app.info_text()[0].startswith('● テキスト出力できませんでした')
+
+
 @pytest.mark.parametrize('event', [key(pygame.K_SPACE), key(pygame.K_ESCAPE), click(1)])
 def test_any_key_or_click_closes_notice_and_keeps_mode(placing, event):
     placing.handle_event(key(pygame.K_F1))
@@ -208,6 +219,16 @@ def test_quit_events_stop_the_app(app, event, mode_key):
 def test_f4_without_alt_does_not_quit(app):
     app.handle_event(key(pygame.K_F4, mod=pygame.KMOD_NUM))
     assert app.running
+
+
+def test_run_draws_after_handling_input(app, screen):
+    pygame.event.post(key(pygame.K_DOWN))
+    pygame.event.post(pygame.event.Event(pygame.QUIT))
+    app.run()
+    shown = screen.copy()
+    app.draw()
+    assert app.num == 1
+    assert pygame.image.tobytes(shown, 'RGB') == pygame.image.tobytes(screen, 'RGB')
 
 
 def test_run_returns_after_quit_event(app):
@@ -260,7 +281,9 @@ def test_main_sets_up_window_and_runs(monkeypatch):
     }
 
 
-def test_main_exits_with_message_when_no_images(monkeypatch, tmp_path):
-    monkeypatch.setattr(ImageTest, 'IMAGE_DIR', tmp_path)
+@pytest.mark.parametrize('folder', ['empty', 'missing'])
+def test_main_exits_with_message_when_no_images(monkeypatch, tmp_path, folder):
+    (tmp_path / 'empty').mkdir()
+    monkeypatch.setattr(ImageTest, 'IMAGE_DIR', tmp_path / folder)
     with pytest.raises(SystemExit, match='画像がありません'):
         ImageTest.main()
