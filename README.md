@@ -40,8 +40,12 @@ docker compose up --build
             Left Click, Left Drag: Move image
             Right Click: To Select Image Mode
         Keyboard
-            Cursor keys: Move image
+            Cursor keys: Move image (1px, with Shift: 10px)
             X: To Select Image Mode
+
+    Screen
+        Selected image: framed (yellow: Select Image Mode, red: Place Image Mode)
+        Upper right: image name, position, size and mouse position
 
     Others
         F1, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)

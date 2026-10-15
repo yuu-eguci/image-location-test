@@ -152,6 +152,20 @@ def test_cursor_keys_stop_at_screen_edges(placing):
     assert image.xy == [WIDTH - 1, HEIGHT - 1]
 
 
+def test_shift_cursor_keys_move_image_by_ten_pixels(placing):
+    image = placing.images[placing.num]
+    image.xy = [10, 5]
+    placing.handle_event(key(pygame.K_RIGHT, mod=pygame.KMOD_LSHIFT))
+    placing.handle_event(key(pygame.K_DOWN, mod=pygame.KMOD_RSHIFT))
+    assert image.xy == [20, 15]
+    placing.handle_event(key(pygame.K_UP, mod=pygame.KMOD_LSHIFT))
+    placing.handle_event(key(pygame.K_UP, mod=pygame.KMOD_LSHIFT))
+    assert image.xy == [20, 0]
+    image.xy = [WIDTH - 5, 0]
+    placing.handle_event(key(pygame.K_RIGHT, mod=pygame.KMOD_LSHIFT))
+    assert image.xy == [WIDTH - 1, 0]
+
+
 @pytest.mark.parametrize('event', [key(pygame.K_x), click(3)])
 def test_x_or_right_click_returns_to_select_mode(placing, event):
     placing.handle_event(event)
@@ -251,12 +265,28 @@ def test_draw_shows_images_and_info_box(app, screen):
 
 def test_info_text_follows_mode(app):
     assert app.info_text()[0].startswith('<選択モード>')
-    assert app.info_text()[1] == '▼ a.png'
+    assert app.info_text()[1:] == ['▼ a.png', '  位置: [0, 0]  大きさ: 10x10', '  ﾏｳｽ: (0, 0)']
     app.handle_event(key(pygame.K_z))
     assert app.info_text()[0].startswith('<配置ﾓｰﾄﾞ>')
-    assert app.info_text()[2] == '▼ 位置: [0, 0]'
+    assert app.info_text()[2] == '▼ 位置: [0, 0]  大きさ: 10x10'
     app.handle_event(key(pygame.K_F1))
     assert app.info_text()[0] == '● データをテキスト出力しました ●'
+
+
+def test_info_text_shows_mouse_position(app):
+    app.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=(7, 8), buttons=(0, 0, 0)))
+    assert app.info_text()[3] == '  ﾏｳｽ: (7, 8)'
+
+
+def test_selected_image_is_framed_by_mode_color(app, screen):
+    app.images[0].xy = [20, 20]
+    app.draw()
+    assert screen.get_at((30, 25))[:3] == ImageTest.FRAME_COLORS['select']
+    assert screen.get_at((25, 25))[:3] == (255, 0, 0)
+    assert screen.get_at((31, 25))[:3] == (0, 0, 0)
+    app.handle_event(key(pygame.K_z))
+    app.draw()
+    assert screen.get_at((19, 25))[:3] == ImageTest.FRAME_COLORS['place']
 
 
 # 起動

@@ -25,6 +25,9 @@ imageフォルダ内の画像を全部表示する。
     image, otherフォルダはスクリプトの場所から探す。
     マウスホイールの向きを上下キーに合わせた (上で前の画像、下で次の画像)。
     テキスト出力できなかったときは落ちないで、理由を表示する。
+    選択中の画像を枠で囲むようにした (選択モードは黄色、配置モードは赤)。
+    Shift+カーソルキーで10ピクセルずつ動かせるようにした。
+    右上に画像の大きさとマウスの位置も表示するようにした。
 """
 
 import sys
@@ -37,6 +40,8 @@ IMAGE_DIR = BASE_DIR / 'image'
 OTHER_DIR = BASE_DIR / 'other'
 SCREEN_SIZE = (640, 480)
 FRAMERATE = 20
+# 選択中の画像を囲む枠の色
+FRAME_COLORS = {'select': (255, 255, 0), 'place': (255, 0, 0)}
 
 
 class Images:
@@ -81,6 +86,7 @@ class ImageTest:
         self.mode = 'select'
         self.num = 0
         self.notice = None
+        self.mouse = (0, 0)
         self.running = True
 
     def run(self):
@@ -98,6 +104,10 @@ class ImageTest:
         self.screen.fill((0, 0, 0))
         for image in self.images:
             self.screen.blit(image.surface, tuple(image.xy))
+        # 選択中の画像を枠で囲む (画像の1ピクセル外側)
+        image = self.images[self.num]
+        frame = image.surface.get_rect(topleft=image.xy).inflate(2, 2)
+        pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
         self.blit_text(self.info_text())
 
     def info_text(self):
@@ -105,16 +115,21 @@ class ImageTest:
         if self.notice:
             return ['● ' + self.notice + ' ●', '  何かキーを押してください']
         image = self.images[self.num]
+        width, height = image.surface.get_size()
+        position = f'位置: {image.xy}  大きさ: {width}x{height}'
+        mouse = f'  ﾏｳｽ: {self.mouse}'
         if self.mode == 'select':
             return [
                 '<選択モード> ﾏｳｽﾎｲｰﾙ:画像選択 左ｸﾘｯｸ:決定 F1:ﾃｷｽﾄ出力',
                 '▼ ' + image.name,
-                '  位置: ' + str(image.xy),
+                '  ' + position,
+                mouse,
             ]
         return [
             '<配置ﾓｰﾄﾞ> 左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:画像配置 右ｸﾘｯｸ:戻る F1:ﾃｷｽﾄ出力',
             '  ' + image.name,
-            '▼ 位置: ' + str(image.xy),
+            '▼ ' + position,
+            mouse,
         ]
 
     def blit_text(self, text_list):
@@ -134,6 +149,8 @@ class ImageTest:
 
     def handle_event(self, event):
         """イベントをひとつ処理する。"""
+        if event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN):
+            self.mouse = event.pos
         if event.type == pygame.QUIT:
             self.running = False
         elif self.notice:
@@ -188,23 +205,24 @@ class ImageTest:
     def place_mode(self, event):
         """画像配置モード
         マウスクリック, ドラッグ:その座標に配置
-        カーソルキー:1ピクセルずつ移動
+        カーソルキー:1ピクセルずつ移動 (Shiftを押しながらだと10ピクセルずつ)
         X, 右クリック:画像選択モードへ
         """
         image = self.images[self.num]
         x, y = image.xy
         if event.type == pygame.KEYDOWN:
+            step = 10 if event.mod & pygame.KMOD_SHIFT else 1
             if event.key == pygame.K_x:
                 self.mode = 'select'
             # 上下左右で画像移動 (画面の外には出さない)
             if event.key == pygame.K_UP:
-                image.xy[1] = max(y - 1, 0)
+                image.xy[1] = max(y - step, 0)
             if event.key == pygame.K_DOWN:
-                image.xy[1] = min(y + 1, self.screen.get_height() - 1)
+                image.xy[1] = min(y + step, self.screen.get_height() - 1)
             if event.key == pygame.K_LEFT:
-                image.xy[0] = max(x - 1, 0)
+                image.xy[0] = max(x - step, 0)
             if event.key == pygame.K_RIGHT:
-                image.xy[0] = min(x + 1, self.screen.get_width() - 1)
+                image.xy[0] = min(x + step, self.screen.get_width() - 1)
         # マウスクリック(左)とドラッグ(左)で画像移動
         if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1) or (
             event.type == pygame.MOUSEMOTION and event.buttons[0]
