@@ -4,6 +4,8 @@ services:
       context: .
       target: app
     init: true
+    environment:
+      IMAGETEST_SIZE: ${IMAGETEST_SIZE:-640x480}
     ports:
       # 自分の PC からだけ見られるようにする (noVNC にパスワードは無い)
       - "127.0.0.1:6080:6080"

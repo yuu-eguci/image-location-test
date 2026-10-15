@@ -30,8 +30,10 @@ imageフォルダ内の画像を全部表示する。
     右上に画像の大きさとマウスの位置も表示するようにした。
     起動したときにテキスト出力したファイルがあれば、その位置と重なり順を読み込む。
     Sキーでもテキスト出力できるようにした (MacやブラウザだとF1が押しにくいので)。
+    画面の大きさを環境変数 IMAGETEST_SIZE で変えられるようにした。
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -44,6 +46,7 @@ OTHER_DIR = BASE_DIR / 'other'
 # テキスト出力するファイル (カレントディレクトリ)。1行に「画像名 [x, y]」
 OUTPUT_FILE = Path('imagetestText.txt')
 LINE_PATTERN = re.compile(r'(.+) \[(-?\d+), (-?\d+)\]')
+# 画面の大きさ。環境変数 IMAGETEST_SIZE (例: 800x600) で変えられる
 SCREEN_SIZE = (640, 480)
 FRAMERATE = 20
 # 選択中の画像を囲む枠の色
@@ -62,6 +65,17 @@ class Images:
         self.name = image_path.name
         self.surface = pygame.image.load(image_path).convert_alpha()
         self.xy = [0, 0]
+
+
+def screen_size():
+    """環境変数 IMAGETEST_SIZE があればその大きさ、無ければ SCREEN_SIZE。"""
+    value = os.environ.get('IMAGETEST_SIZE')
+    if not value:
+        return SCREEN_SIZE
+    match = re.fullmatch(r'([1-9]\d*)x([1-9]\d*)', value)
+    if not match:
+        sys.exit(f'IMAGETEST_SIZE は 800x600 のように書いてください: {value}')
+    return int(match[1]), int(match[2])
 
 
 def create_image_list(image_dir):
@@ -268,8 +282,9 @@ class ImageTest:
 
 
 def main():
+    size = screen_size()
     pygame.init()
-    screen = pygame.display.set_mode(SCREEN_SIZE)
+    screen = pygame.display.set_mode(size)
     icon = pygame.image.load(OTHER_DIR / 'pythongreen32x32.png').convert_alpha()
     icon.set_colorkey(icon.get_at((0, 0)), pygame.RLEACCEL)
     pygame.display.set_icon(icon)

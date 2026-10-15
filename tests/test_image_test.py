@@ -365,6 +365,33 @@ def test_main_sets_up_window_and_runs(monkeypatch, tmp_path):
     }
 
 
+def test_main_uses_screen_size_from_environment(monkeypatch, tmp_path):
+    seen = {}
+    monkeypatch.setattr(
+        ImageTest.ImageTest, 'run', lambda self: seen.update(size=self.screen.get_size())
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('IMAGETEST_SIZE', '800x600')
+    ImageTest.main()
+    assert seen['size'] == (800, 600)
+
+
+@pytest.mark.parametrize(('value', 'size'), [(None, (640, 480)), ('1024x768', (1024, 768))])
+def test_screen_size(monkeypatch, value, size):
+    if value is None:
+        monkeypatch.delenv('IMAGETEST_SIZE', raising=False)
+    else:
+        monkeypatch.setenv('IMAGETEST_SIZE', value)
+    assert ImageTest.screen_size() == size
+
+
+@pytest.mark.parametrize('value', ['big', '800x', '0x600', '800x600x2', '-800x600'])
+def test_screen_size_rejects_bad_value(monkeypatch, value):
+    monkeypatch.setenv('IMAGETEST_SIZE', value)
+    with pytest.raises(SystemExit, match='IMAGETEST_SIZE'):
+        ImageTest.screen_size()
+
+
 @pytest.mark.parametrize('folder', ['empty', 'missing'])
 def test_main_exits_with_message_when_no_images(monkeypatch, tmp_path, folder):
     (tmp_path / 'empty').mkdir()

@@ -22,6 +22,7 @@ docker compose up --build
 - F1 (または S) を押すと `output/imagetestText.txt` に全画像の座標が出力される。次に起動したときは、その配置から始まる。
 - `image/` フォルダに自分の画像を入れて起動しなおすと、その画像を配置できる。
 - ESC で終了すると、コンテナも止まる。
+- 画面の大きさは 640x480。作っているゲームに合わせたいときは `IMAGETEST_SIZE=800x600 docker compose up` みたいに指定する。
 
 ![1](media/IMAGETEST.jpg)
 
