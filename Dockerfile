@@ -1,3 +1,6 @@
+# uv は FROM に書いておくと Dependabot が更新してくれる
+FROM ghcr.io/astral-sh/uv:0.13.1 AS uv
+
 FROM python:3.15-slim-trixie AS base
 
 # Xvfb: 画面のない仮想ディスプレイ, x11vnc + noVNC: その画面をブラウザで見る
@@ -10,7 +13,7 @@ ADD --checksum=sha256:b1003a11b6e6e8d8f7f5e5586daae7f8ca651d8aee0aa155ff9ac841c4
 RUN mkdir /opt/novnc \
     && tar xzf /tmp/novnc.tar.gz -C /opt/novnc --strip-components=1 \
     && rm /tmp/novnc.tar.gz
-COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /bin/uv
+COPY --from=uv /uv /bin/uv
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_PYTHON_DOWNLOADS=never \
     UV_COMPILE_BYTECODE=1 \
