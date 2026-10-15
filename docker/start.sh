@@ -1,6 +1,8 @@
 #!/bin/sh
 # 仮想ディスプレイで ImageTest を起動し、noVNC (http://localhost:6080/vnc.html) で見られるようにする。
 set -e
+# 止めたコンテナをもう一度起動したときに、前回の Xvfb のロックが残っていると起動できないので消す
+rm -f /tmp/.X0-lock /tmp/.X11-unix/X0
 Xvfb :0 -screen 0 640x480x24 -nolisten tcp &
 # Xvfb の準備ができるまで待つ (10 秒で諦める)
 for _ in $(seq 100); do [ -e /tmp/.X11-unix/X0 ] && break; sleep 0.1; done
