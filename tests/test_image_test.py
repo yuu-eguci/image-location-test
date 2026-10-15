@@ -279,6 +279,12 @@ def test_click_closing_notice_does_not_drag_image(placing):
     assert image.xy == [300, 300]
 
 
+def test_mouse_motion_keeps_notice(placing):
+    placing.handle_event(key(pygame.K_F1))
+    placing.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=(5, 5), buttons=(0, 0, 0)))
+    assert placing.notice
+
+
 def test_text_output_is_utf8_for_any_file_name(tmp_path, screen, font):
     d = tmp_path / 'image'
     d.mkdir()
@@ -401,6 +407,24 @@ def test_reload_is_not_an_undo_step(app, image_dir):
     app.handle_event(key(pygame.K_F5))
     app.handle_event(key(pygame.K_u))
     assert names(app) == ['a.png', 'b.png', 'c.png']
+
+
+def test_u_without_history_does_nothing(app):
+    app.handle_event(key(pygame.K_u))
+    assert [(image.name, image.xy) for image in app.images] == [
+        ('a.png', [0, 0]),
+        ('b.png', [0, 0]),
+    ]
+
+
+def test_key_move_while_button_is_held_joins_the_click_step(placing):
+    image = placing.images[placing.num]
+    placing.handle_event(click(1, pos=(0, 0)))  # 位置は変わらないクリック (ボタンはまだ押したまま)
+    placing.handle_event(key(pygame.K_RIGHT))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+    placing.handle_event(key(pygame.K_u))
+    assert names(placing) == ['a.png', 'b.png']
 
 
 def test_undo_history_is_limited(placing):
