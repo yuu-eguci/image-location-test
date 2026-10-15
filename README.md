@@ -49,6 +49,7 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
             Right Click: To Select Image Mode
         Keyboard
             Cursor keys: Move image (1px, with Shift: 10px)
+            Home, End, PageUp, PageDown: Put image on the left, right, top, bottom edge of the screen
             X: To Select Image Mode
 
     Screen

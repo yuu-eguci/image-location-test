@@ -200,6 +200,28 @@ def test_cursor_keys_do_not_pull_off_screen_image_to_the_edge(placing, start, k,
     assert image.xy == end
 
 
+@pytest.mark.parametrize(
+    ('k', 'end'),
+    [
+        (pygame.K_HOME, [0, 20]),
+        (pygame.K_END, [WIDTH - 10, 20]),
+        (pygame.K_PAGEUP, [30, 0]),
+        (pygame.K_PAGEDOWN, [30, HEIGHT - 10]),
+    ],
+)
+def test_home_end_pageup_pagedown_put_image_on_screen_edge(placing, k, end):
+    image = placing.images[placing.num]
+    image.xy = [30, 20]
+    placing.handle_event(key(k))
+    assert image.xy == end
+
+
+def test_edge_keys_do_nothing_in_select_mode(app):
+    app.images[0].xy = [30, 20]
+    app.handle_event(key(pygame.K_END))
+    assert app.images[0].xy == [30, 20]
+
+
 @pytest.mark.parametrize('event', [key(pygame.K_x), click(3)])
 def test_x_or_right_click_returns_to_select_mode(placing, event):
     placing.handle_event(event)
@@ -508,7 +530,7 @@ def test_f2_toggles_help_with_all_keys(app):
     app.handle_event(key(pygame.K_F2))
     help_text = '\n'.join(app.info_text())
     assert app.info_text()[0].startswith('<ﾍﾙﾌﾟ>')
-    for word in ['Z', 'X', 'Shift', 'F1', 'S', 'F5', 'U', 'B', 'H', 'ESC']:
+    for word in ['Z', 'X', 'Shift', 'Home', 'PageDown', 'F1', 'S', 'F5', 'U', 'B', 'H', 'ESC']:
         assert word in help_text
     app.handle_event(key(pygame.K_F2))
     assert app.info_text()[0].startswith('<選択モード>')

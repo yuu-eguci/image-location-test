@@ -42,6 +42,7 @@ imageフォルダ内の画像を全部表示する。
     右上に画像の右下の座標 (位置+大きさ) も表示するようにした。
     保存したファイルが無いときは、大きい画像ほど奥に置くようにした (背景で全部隠れないように)。
     Uキーで、ひとつ前の位置と重なり順に戻せるようにした。
+    Home, End, PageUp, PageDownで画像を画面の端にぴったり置けるようにした。
 """
 
 import os
@@ -69,7 +70,7 @@ HELP_TEXT = [
     '<ﾍﾙﾌﾟ> F2:閉じる',
     '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Z/左ｸﾘｯｸ:配置ﾓｰﾄﾞへ',
     '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
-    '          X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
+    '          Home/End/PageUp/PageDown:画面の端へ  X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
     'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U:元に戻す',
     'B:背景  H:表示を隠す  ESC/Alt+F4:終了',
 ]
@@ -353,6 +354,7 @@ class ImageTest:
         """画像配置モード
         マウスクリック, ドラッグ:その座標に配置
         カーソルキー:1ピクセルずつ移動 (Shiftを押しながらだと10ピクセルずつ)
+        Home, End, PageUp, PageDown:画面の左端、右端、上端、下端に置く
         X, 右クリック:画像選択モードへ
         """
         image = self.images[self.num]
@@ -371,6 +373,16 @@ class ImageTest:
                 image.xy[0] = max(x - step, min(x, 0))
             if event.key == pygame.K_RIGHT:
                 image.xy[0] = min(x + step, max(x, width - 1))
+            # Home, End, PageUp, PageDownで画面の左端、右端、上端、下端にぴったり置く
+            image_width, image_height = image.surface.get_size()
+            if event.key == pygame.K_HOME:
+                image.xy[0] = 0
+            if event.key == pygame.K_END:
+                image.xy[0] = width - image_width
+            if event.key == pygame.K_PAGEUP:
+                image.xy[1] = 0
+            if event.key == pygame.K_PAGEDOWN:
+                image.xy[1] = height - image_height
         # マウスクリック(左)とドラッグ(左)で画像移動
         if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 1) or (
             event.type == pygame.MOUSEMOTION and event.buttons[0] and not self.drag_blocked
