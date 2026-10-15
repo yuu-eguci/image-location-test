@@ -541,6 +541,43 @@ def test_g_cycles_grid(app, screen):
     assert lines() == []
 
 
+def loupe_cell(app, screen, dx, dy):
+    """拡大表示で、マウスから (dx, dy) ずれたピクセルのマスの真ん中の色。"""
+    size, scale = ImageTest.LOUPE_SIZE, ImageTest.LOUPE_SCALE
+    top = HEIGHT - 5 - size * scale
+    center = size // 2
+    return screen.get_at(
+        (5 + (center + dx) * scale + scale // 2, top + (center + dy) * scale + scale // 2)
+    )[:3]
+
+
+def test_m_shows_magnified_pixels_around_mouse(app, screen):
+    app.images[1].xy = [20, 20]  # b.png (青) は (20, 20)-(30, 30)
+    move_mouse(app, (19, 25))
+    app.draw()
+    assert loupe_cell(app, screen, 1, 0) != (0, 0, 255)
+    app.handle_event(key(pygame.K_m))
+    app.draw()
+    assert loupe_cell(app, screen, 0, 0) == (0, 0, 0)
+    assert loupe_cell(app, screen, 1, 0) == (0, 0, 255)
+    assert loupe_cell(app, screen, 7, 0) == (0, 0, 255)
+    app.handle_event(key(pygame.K_m))
+    app.draw()
+    assert loupe_cell(app, screen, 1, 0) != (0, 0, 255)
+
+
+def test_magnifier_shows_black_outside_screen(app, screen):
+    app.handle_event(key(pygame.K_b))
+    app.handle_event(key(pygame.K_b))  # 背景を白にして、画面の外 (黒) と区別する
+    move_mouse(app, (0, 14))  # 画像は (0, 0)-(10, 10)。手前は b.png (青)
+    app.handle_event(key(pygame.K_m))
+    app.draw()
+    assert loupe_cell(app, screen, 0, 0) == (255, 255, 255)
+    assert loupe_cell(app, screen, 0, -5) == (0, 0, 255)
+    assert loupe_cell(app, screen, -1, 0) == (0, 0, 0)
+    assert loupe_cell(app, screen, -1, -5) == (0, 0, 0)
+
+
 def test_h_hides_info_but_not_notice(app, screen):
     corner = (WIDTH - 6, 6)
     app.handle_event(key(pygame.K_h))
@@ -588,6 +625,7 @@ def test_f2_toggles_help_with_all_keys(app):
         'U',
         'B',
         'G',
+        'M',
         'H',
         'ESC',
     ]:

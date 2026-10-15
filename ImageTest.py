@@ -45,6 +45,7 @@ imageフォルダ内の画像を全部表示する。
     Home, End, PageUp, PageDownで画像を画面の端にぴったり置けるようにした。
     Tabキーでマウスの下にある画像を選べるようにした (押すたびに奥の画像へ)。
     Gキーで方眼 (8, 16, 32ピクセル) を表示できるようにした。
+    Mキーでマウスのまわりを8倍に拡大して表示できるようにした。
 """
 
 import os
@@ -70,6 +71,9 @@ BACKGROUNDS = [(0, 0, 0), (128, 128, 128), (255, 255, 255), None]
 # Gキーで切り替える方眼の間隔 (0は無し)
 GRID_SPACINGS = [0, 8, 16, 32]
 GRID_COLOR = (0, 255, 255)
+# Mキーの拡大表示: マウスのまわり LOUPE_SIZE ピクセル四方を LOUPE_SCALE 倍で左下に出す
+LOUPE_SIZE = 15
+LOUPE_SCALE = 8
 QUIT_WARNING = '保存していません。もう一度押すと終了'
 HELP_TEXT = [
     '<ﾍﾙﾌﾟ> F2:閉じる',
@@ -77,7 +81,7 @@ HELP_TEXT = [
     '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
     '          Home/End/PageUp/PageDown:画面の端へ  X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
     'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U:元に戻す',
-    'B:背景  G:方眼  H:表示を隠す  ESC/Alt+F4:終了',
+    'B:背景  G:方眼  M:拡大  H:表示を隠す  ESC/Alt+F4:終了',
 ]
 
 
@@ -180,6 +184,7 @@ class ImageTest:
         self.drag_blocked = False
         self.background = 0
         self.grid = 0
+        self.show_loupe = False
         self.show_info = True
         self.show_help = False
         self.saved_layout = self.layout()
@@ -212,6 +217,8 @@ class ImageTest:
         for image in self.images:
             self.screen.blit(image.surface, tuple(image.xy))
         self.draw_grid()
+        if self.show_loupe:
+            self.draw_loupe()
         if self.show_info:
             # 選択中の画像を枠で囲む (画像の1ピクセル外側)
             image = self.images[self.num]
@@ -230,6 +237,19 @@ class ImageTest:
             pygame.draw.line(self.screen, GRID_COLOR, (x, 0), (x, height - 1))
         for y in range(0, height, spacing):
             pygame.draw.line(self.screen, GRID_COLOR, (0, y), (width - 1, y))
+
+    def draw_loupe(self):
+        """マウスのまわりを拡大して左下に表示する。真ん中の赤い枠がマウスのピクセル。画面の外は黒。"""
+        mx, my = self.mouse
+        half = LOUPE_SIZE // 2
+        area = pygame.Surface((LOUPE_SIZE, LOUPE_SIZE))
+        area.blit(self.screen, (0, 0), pygame.Rect(mx - half, my - half, LOUPE_SIZE, LOUPE_SIZE))
+        zoomed = pygame.transform.scale_by(area, LOUPE_SCALE)
+        left, top = 5, self.screen.get_height() - 5 - zoomed.get_height()
+        self.screen.blit(zoomed, (left, top))
+        pygame.draw.rect(self.screen, (255, 255, 255), zoomed.get_rect(topleft=(left, top)), 1)
+        center = (left + half * LOUPE_SCALE, top + half * LOUPE_SCALE, LOUPE_SCALE, LOUPE_SCALE)
+        pygame.draw.rect(self.screen, (255, 0, 0), center, 1)
 
     def fill_background(self):
         """背景を塗る。チェック柄は16ピクセルの市松模様。"""
@@ -335,6 +355,8 @@ class ImageTest:
             self.background = (self.background + 1) % len(BACKGROUNDS)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_g:
             self.grid = (self.grid + 1) % len(GRID_SPACINGS)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_m:
+            self.show_loupe = not self.show_loupe
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_h:
             self.show_info = not self.show_info
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
