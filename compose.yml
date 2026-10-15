@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      target: app
+    init: true
+    ports:
+      # 自分の PC からだけ見られるようにする (noVNC にパスワードは無い)
+      - "127.0.0.1:6080:6080"
+    volumes:
+      - ./image:/app/image:ro
+      - ./output:/app/output
+
+  dev:
+    build:
+      context: .
+      target: dev
+    profiles: [dev]
+    volumes:
+      - .:/app
