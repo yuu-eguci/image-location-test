@@ -31,6 +31,8 @@ imageフォルダ内の画像を全部表示する。
     起動したときにテキスト出力したファイルがあれば、その位置と重なり順を読み込む。
     Sキーでもテキスト出力できるようにした (MacやブラウザだとF1が押しにくいので)。
     画面の大きさを環境変数 IMAGETEST_SIZE で変えられるようにした。
+    Bキーで背景を黒、灰色、白、チェック柄に切り替えられるようにした。
+    Hキーで右上の表示を隠せるようにした。
 """
 
 import os
@@ -51,6 +53,8 @@ SCREEN_SIZE = (640, 480)
 FRAMERATE = 20
 # 選択中の画像を囲む枠の色
 FRAME_COLORS = {'select': (255, 255, 0), 'place': (255, 0, 0)}
+# Bキーで切り替える背景 (Noneはチェック柄)
+BACKGROUNDS = [(0, 0, 0), (128, 128, 128), (255, 255, 255), None]
 
 
 class Images:
@@ -125,6 +129,8 @@ class ImageTest:
         self.num = 0
         self.notice = None
         self.mouse = (0, 0)
+        self.background = 0
+        self.show_info = True
         self.running = True
 
     def run(self):
@@ -139,14 +145,27 @@ class ImageTest:
 
     def draw(self):
         """画像を置いて、右上にテキストを表示する。"""
-        self.screen.fill((0, 0, 0))
+        self.fill_background()
         for image in self.images:
             self.screen.blit(image.surface, tuple(image.xy))
         # 選択中の画像を枠で囲む (画像の1ピクセル外側)
         image = self.images[self.num]
         frame = image.surface.get_rect(topleft=image.xy).inflate(2, 2)
         pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
-        self.blit_text(self.info_text())
+        if self.show_info or self.notice:
+            self.blit_text(self.info_text())
+
+    def fill_background(self):
+        """背景を塗る。チェック柄は16ピクセルの市松模様。"""
+        color = BACKGROUNDS[self.background]
+        if color:
+            self.screen.fill(color)
+            return
+        self.screen.fill((102, 102, 102))
+        width, height = self.screen.get_size()
+        for y in range(0, height, 16):
+            for x in range(y // 16 % 2 * 16, width, 32):
+                self.screen.fill((153, 153, 153), (x, y, 16, 16))
 
     def info_text(self):
         """右上に表示するテキスト。"""
@@ -205,6 +224,10 @@ class ImageTest:
             event.type == pygame.MOUSEBUTTONDOWN and event.button == 2
         ):
             self.putfile()
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
+            self.background = (self.background + 1) % len(BACKGROUNDS)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_h:
+            self.show_info = not self.show_info
         elif self.mode == 'select':
             self.select_mode(event)
         else:

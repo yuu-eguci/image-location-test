@@ -263,6 +263,37 @@ def test_draw_shows_images_and_info_box(app, screen):
     assert screen.get_at((WIDTH - 6, 6))[:3] == (255, 255, 255)
 
 
+@pytest.mark.parametrize('mode_key', [None, pygame.K_z])
+def test_b_cycles_background(app, screen, mode_key):
+    if mode_key:
+        app.handle_event(key(mode_key))
+    colors = []
+    for _ in range(5):
+        app.draw()
+        colors.append((screen.get_at((200, 200))[:3], screen.get_at((216, 200))[:3]))
+        app.handle_event(key(pygame.K_b))
+    black, gray, white = (0, 0, 0), (128, 128, 128), (255, 255, 255)
+    assert colors[:3] == [(black, black), (gray, gray), (white, white)]
+    checker_a, checker_b = colors[3]
+    assert checker_a != checker_b
+    assert {checker_a, checker_b}.isdisjoint({black, white})
+    assert colors[4] == (black, black)
+
+
+def test_h_hides_info_but_not_notice(app, screen):
+    corner = (WIDTH - 6, 6)
+    app.handle_event(key(pygame.K_h))
+    app.draw()
+    assert screen.get_at(corner)[:3] == (0, 0, 0)
+    app.handle_event(key(pygame.K_F1))
+    app.draw()
+    assert screen.get_at(corner)[:3] == (255, 255, 255)
+    app.handle_event(key(pygame.K_SPACE))
+    app.handle_event(key(pygame.K_h))
+    app.draw()
+    assert screen.get_at(corner)[:3] == (255, 255, 255)
+
+
 def test_info_text_follows_mode(app):
     assert app.info_text()[0].startswith('<選択モード>')
     assert app.info_text()[1:] == ['▼ a.png', '  位置: [0, 0]  大きさ: 10x10', '  ﾏｳｽ: (0, 0)']
