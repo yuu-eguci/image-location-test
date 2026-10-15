@@ -19,7 +19,7 @@ docker compose up --build
 
 ブラウザで http://localhost:6080/vnc.html?autoconnect=1 を開くと、下の画面がブラウザの中に出てくる。
 
-- F1 を押すと `output/imagetestText.txt` に全画像の座標が出力される。
+- F1 (または S) を押すと `output/imagetestText.txt` に全画像の座標が出力される。次に起動したときは、その配置から始まる。
 - `image/` フォルダに自分の画像を入れて起動しなおすと、その画像を配置できる。
 - ESC で終了すると、コンテナも止まる。
 
@@ -48,12 +48,13 @@ docker compose up --build
         Upper right: image name, position, size and mouse position
 
     Others
-        F1, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)
+        F1, S, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)
         ESC, Alt+F4: Quit
 
 テキストはこんな感じで、1 行に 1 画像の名前と座標 `[x, y]` が、奥にある画像から順に並ぶ。
 Docker なら `output/`、Docker を使わないときは起動したフォルダに書かれる。
 書き込めなかったときは、右上にその理由が出る。
+次に起動したときにこのファイルがあると、その位置と重なり順を読み込んで続きから始まる。
 
     lecturer.png [0, 0]
     pupil.png [0, 0]

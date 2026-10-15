@@ -28,8 +28,11 @@ imageフォルダ内の画像を全部表示する。
     選択中の画像を枠で囲むようにした (選択モードは黄色、配置モードは赤)。
     Shift+カーソルキーで10ピクセルずつ動かせるようにした。
     右上に画像の大きさとマウスの位置も表示するようにした。
+    起動したときにテキスト出力したファイルがあれば、その位置と重なり順を読み込む。
+    Sキーでもテキスト出力できるようにした (MacやブラウザだとF1が押しにくいので)。
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -38,6 +41,9 @@ import pygame
 BASE_DIR = Path(__file__).resolve().parent
 IMAGE_DIR = BASE_DIR / 'image'
 OTHER_DIR = BASE_DIR / 'other'
+# テキスト出力するファイル (カレントディレクトリ)。1行に「画像名 [x, y]」
+OUTPUT_FILE = Path('imagetestText.txt')
+LINE_PATTERN = re.compile(r'(.+) \[(-?\d+), (-?\d+)\]')
 SCREEN_SIZE = (640, 480)
 FRAMERATE = 20
 # 選択中の画像を囲む枠の色
@@ -73,12 +79,30 @@ def create_image_list(image_dir):
     return image_list
 
 
+def restore_positions(images, path):
+    """前回テキスト出力した位置と重なり順を読み込む。読めないファイルや行は無視する。
+    ファイルに無い画像は前面に置く。"""
+    try:
+        lines = path.read_text(encoding='utf-8').splitlines()
+    except OSError, UnicodeDecodeError:
+        return images
+    unrestored = {image.name: image for image in images}
+    restored = []
+    for line in lines:
+        match = LINE_PATTERN.fullmatch(line)
+        if match and match[1] in unrestored:
+            image = unrestored.pop(match[1])
+            image.xy = [int(match[2]), int(match[3])]
+            restored.append(image)
+    return restored + [image for image in images if image.name in unrestored]
+
+
 class ImageTest:
     """画像選択モード('select')と画像配置モード('place')をもつアプリ本体。
     notice にメッセージが入っている間はそれを表示して、何か入力されるまで待つ。
     """
 
-    def __init__(self, screen, font, images, output_path=Path('imagetestText.txt')):
+    def __init__(self, screen, font, images, output_path=OUTPUT_FILE):
         self.screen = screen
         self.font = font
         self.images = images
@@ -162,7 +186,7 @@ class ImageTest:
             or (event.key == pygame.K_F4 and event.mod & pygame.KMOD_ALT)
         ):
             self.running = False
-        elif (event.type == pygame.KEYDOWN and event.key == pygame.K_F1) or (
+        elif (event.type == pygame.KEYDOWN and event.key in (pygame.K_F1, pygame.K_s)) or (
             # F1の代替。
             event.type == pygame.MOUSEBUTTONDOWN and event.button == 2
         ):
@@ -257,7 +281,7 @@ def main():
     if not images:
         pygame.quit()
         sys.exit(f'{IMAGE_DIR} に画像がありません。')
-    ImageTest(screen, font, images).run()
+    ImageTest(screen, font, restore_positions(images, OUTPUT_FILE)).run()
     pygame.quit()
 
 

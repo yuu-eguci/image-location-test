@@ -175,7 +175,7 @@ def test_x_or_right_click_returns_to_select_mode(placing, event):
 # テキスト出力
 
 
-@pytest.mark.parametrize('event', [key(pygame.K_F1), click(2)])
+@pytest.mark.parametrize('event', [key(pygame.K_F1), key(pygame.K_s), click(2)])
 def test_f1_or_middle_click_writes_positions_as_text(placing, event, tmp_path):
     placing.handle_event(click(1, pos=(5, 6)))
     placing.handle_event(event)
@@ -289,10 +289,63 @@ def test_selected_image_is_framed_by_mode_color(app, screen):
     assert screen.get_at((19, 25))[:3] == ImageTest.FRAME_COLORS['place']
 
 
+# 前回の配置の読み込み
+
+
+def test_restore_positions_applies_saved_positions_and_order(image_dir, tmp_path):
+    saved = tmp_path / 'saved.txt'
+    saved.write_text(
+        'b.png [5, 6]\nbroken line\nmissing.png [1, 2]\nmy a.png [9, 9]\na.png [7, -8]\n',
+        encoding='utf-8',
+    )
+    images = ImageTest.restore_positions(ImageTest.create_image_list(image_dir), saved)
+    assert [(image.name, image.xy) for image in images] == [('b.png', [5, 6]), ('a.png', [7, -8])]
+
+
+def test_restore_positions_puts_unsaved_images_in_front(image_dir, tmp_path):
+    saved = tmp_path / 'saved.txt'
+    saved.write_text('b.png [5, 6]\n', encoding='utf-8')
+    images = ImageTest.restore_positions(ImageTest.create_image_list(image_dir), saved)
+    assert [(image.name, image.xy) for image in images] == [('b.png', [5, 6]), ('a.png', [0, 0])]
+
+
+@pytest.mark.parametrize('content', [None, '画像.png [1, 2]'.encode('shift_jis')])
+def test_restore_positions_ignores_missing_or_unreadable_file(image_dir, tmp_path, content):
+    saved = tmp_path / 'saved.txt'
+    if content is not None:
+        saved.write_bytes(content)
+    images = ImageTest.restore_positions(ImageTest.create_image_list(image_dir), saved)
+    assert [(image.name, image.xy) for image in images] == [('a.png', [0, 0]), ('b.png', [0, 0])]
+
+
+def test_saved_text_round_trips(app, tmp_path):
+    app.images[0].xy = [3, 4]
+    app.handle_event(key(pygame.K_z))
+    app.handle_event(key(pygame.K_F1))
+    images = ImageTest.restore_positions(
+        ImageTest.create_image_list(tmp_path / 'image'), app.output_path
+    )
+    assert [(image.name, image.xy) for image in images] == [('b.png', [0, 0]), ('a.png', [3, 4])]
+
+
 # 起動
 
 
-def test_main_sets_up_window_and_runs(monkeypatch):
+def test_main_restores_layout_from_current_folder(monkeypatch, tmp_path):
+    seen = {}
+    monkeypatch.setattr(
+        ImageTest.ImageTest,
+        'run',
+        lambda self: seen.update(images=self.images, path=self.output_path),
+    )
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'imagetestText.txt').write_text('skype.png [1, 2]\n', encoding='utf-8')
+    ImageTest.main()
+    assert (seen['images'][0].name, seen['images'][0].xy) == ('skype.png', [1, 2])
+    assert seen['path'] == ImageTest.OUTPUT_FILE
+
+
+def test_main_sets_up_window_and_runs(monkeypatch, tmp_path):
     seen = {}
 
     def fake_run(self):
@@ -302,6 +355,7 @@ def test_main_sets_up_window_and_runs(monkeypatch):
         seen['repeat'] = pygame.key.get_repeat()
 
     monkeypatch.setattr(ImageTest.ImageTest, 'run', fake_run)
+    monkeypatch.chdir(tmp_path)
     ImageTest.main()
     assert seen == {
         'caption': '画像配置テスト ESCキーで終了できます',
