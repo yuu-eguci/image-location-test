@@ -314,7 +314,69 @@ def test_f5_returns_to_select_mode_when_placed_image_is_gone(app, image_dir):
 def test_quit_events_stop_the_app(app, event, mode_key):
     if mode_key:
         app.handle_event(key(mode_key))
+        app.handle_event(key(pygame.K_s))
+        app.handle_event(key(pygame.K_SPACE))
     app.handle_event(event)
+    assert not app.running
+
+
+@pytest.mark.parametrize(
+    'change',
+    [
+        [key(pygame.K_z)],
+        [key(pygame.K_z), key(pygame.K_x), key(pygame.K_DOWN), click(1), click(1, (3, 4))],
+    ],
+)
+def test_changes_are_marked_unsaved(app, change):
+    assert not app.dirty
+    for event in change:
+        app.handle_event(event)
+    assert app.dirty
+    assert app.info_text()[1].endswith('  *未保存')
+    app.handle_event(key(pygame.K_s))
+    assert not app.dirty
+
+
+def test_moving_back_to_saved_layout_is_not_a_change(app):
+    app.handle_event(key(pygame.K_z))
+    app.handle_event(key(pygame.K_x))
+    app.handle_event(key(pygame.K_DOWN))
+    app.handle_event(click(1))
+    assert names(app) == ['a.png', 'b.png']
+    assert not app.dirty
+
+
+def test_reload_and_selection_are_not_changes(app):
+    app.handle_event(key(pygame.K_DOWN))
+    app.handle_event(click(5))
+    app.handle_event(key(pygame.K_F5))
+    assert not app.dirty
+
+
+@pytest.mark.parametrize('quit_key', [key(pygame.K_ESCAPE), key(pygame.K_F4, mod=pygame.KMOD_LALT)])
+def test_quit_with_unsaved_changes_needs_second_press(app, quit_key):
+    app.handle_event(key(pygame.K_z))
+    app.handle_event(quit_key)
+    assert app.running
+    assert app.info_text()[0].startswith('● 保存していません')
+    app.handle_event(quit_key)
+    assert not app.running
+
+
+def test_unsaved_warning_is_closed_by_other_keys_and_shown_again(app):
+    app.handle_event(key(pygame.K_z))
+    app.handle_event(key(pygame.K_ESCAPE))
+    app.handle_event(key(pygame.K_SPACE))
+    assert app.notice is None
+    app.handle_event(key(pygame.K_ESCAPE))
+    assert app.running
+    app.handle_event(key(pygame.K_ESCAPE))
+    assert not app.running
+
+
+def test_window_close_quits_even_with_unsaved_changes(app):
+    app.handle_event(key(pygame.K_z))
+    app.handle_event(pygame.event.Event(pygame.QUIT))
     assert not app.running
 
 
@@ -394,6 +456,23 @@ def test_info_text_follows_mode(app):
     assert app.info_text()[2] == '▼ 位置: [0, 0]  大きさ: 10x10'
     app.handle_event(key(pygame.K_F1))
     assert app.info_text()[0] == '● データをテキスト出力しました ●'
+
+
+def test_f2_toggles_help_with_all_keys(app):
+    app.handle_event(key(pygame.K_F2))
+    help_text = '\n'.join(app.info_text())
+    assert app.info_text()[0].startswith('<ﾍﾙﾌﾟ>')
+    for word in ['Z', 'X', 'Shift', 'F1', 'S', 'F5', 'B', 'H', 'ESC']:
+        assert word in help_text
+    app.handle_event(key(pygame.K_F2))
+    assert app.info_text()[0].startswith('<選択モード>')
+
+
+def test_help_is_shown_even_when_info_is_hidden(app, screen):
+    app.handle_event(key(pygame.K_h))
+    app.handle_event(key(pygame.K_F2))
+    app.draw()
+    assert screen.get_at((WIDTH - 6, 6))[:3] == (255, 255, 255)
 
 
 def test_info_text_shows_mouse_position(app):

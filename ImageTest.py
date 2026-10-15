@@ -38,6 +38,8 @@ imageフォルダ内の画像を全部表示する。
     メッセージを閉じたクリックのままドラッグしても画像が動かないようにした。
     画面の外にある画像をカーソルキーで動かしたときに、画面の端まで飛ばないようにした。
     Hキーで枠も隠すようにした。マウスの位置は選択中の画像の左上からの位置も表示する。
+    保存していない変更があるときは、ESCを2回押さないと終了しないようにした。
+    F2キーでヘルプを表示するようにした。
 """
 
 import os
@@ -60,6 +62,15 @@ FRAMERATE = 20
 FRAME_COLORS = {'select': (255, 255, 0), 'place': (255, 0, 0)}
 # Bキーで切り替える背景 (Noneはチェック柄)
 BACKGROUNDS = [(0, 0, 0), (128, 128, 128), (255, 255, 255), None]
+QUIT_WARNING = '保存していません。もう一度押すと終了'
+HELP_TEXT = [
+    '<ﾍﾙﾌﾟ> F2:閉じる',
+    '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Z/左ｸﾘｯｸ:配置ﾓｰﾄﾞへ',
+    '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
+    '          X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
+    'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし',
+    'B:背景  H:表示を隠す  ESC/Alt+F4:終了',
+]
 
 
 class Images:
@@ -125,6 +136,13 @@ def restore_positions(images, path):
     return apply_layout(images, [(m[1], [int(m[2]), int(m[3])]) for m in matches if m])
 
 
+def is_quit_key(event):
+    """ESCかAlt+F4。"""
+    return event.type == pygame.KEYDOWN and (
+        event.key == pygame.K_ESCAPE or (event.key == pygame.K_F4 and event.mod & pygame.KMOD_ALT)
+    )
+
+
 class ImageTest:
     """画像選択モード('select')と画像配置モード('place')をもつアプリ本体。
     notice にメッセージが入っている間はそれを表示して、何か入力されるまで待つ。
@@ -144,7 +162,18 @@ class ImageTest:
         self.drag_blocked = False
         self.background = 0
         self.show_info = True
+        self.show_help = False
+        self.saved_layout = self.layout()
         self.running = True
+
+    def layout(self):
+        """今の (画像名, 位置) の並び。"""
+        return [(image.name, list(image.xy)) for image in self.images]
+
+    @property
+    def dirty(self):
+        """最後にテキスト出力 (か起動) してから、位置か重なり順が変わったか。"""
+        return self.layout() != self.saved_layout
 
     def run(self):
         """ゲームループ。"""
@@ -166,7 +195,7 @@ class ImageTest:
             image = self.images[self.num]
             frame = image.surface.get_rect(topleft=image.xy).inflate(2, 2)
             pygame.draw.rect(self.screen, FRAME_COLORS[self.mode], frame, 1)
-        if self.show_info or self.notice:
+        if self.show_info or self.notice or self.show_help:
             self.blit_text(self.info_text())
 
     def fill_background(self):
@@ -185,21 +214,24 @@ class ImageTest:
         """右上に表示するテキスト。"""
         if self.notice:
             return ['● ' + self.notice + ' ●', '  何かキーを押してください']
+        if self.show_help:
+            return HELP_TEXT
         image = self.images[self.num]
+        unsaved = '  *未保存' if self.dirty else ''
         width, height = image.surface.get_size()
         position = f'位置: {image.xy}  大きさ: {width}x{height}'
         mx, my = self.mouse
         mouse = f'  ﾏｳｽ: {self.mouse}  画像内: ({mx - image.xy[0]}, {my - image.xy[1]})'
         if self.mode == 'select':
             return [
-                '<選択モード> ﾏｳｽﾎｲｰﾙ:画像選択 左ｸﾘｯｸ:決定 F1:ﾃｷｽﾄ出力',
-                '▼ ' + image.name,
+                '<選択モード> ﾏｳｽﾎｲｰﾙ:画像選択 左ｸﾘｯｸ:決定 F1:ﾃｷｽﾄ出力 F2:ﾍﾙﾌﾟ',
+                '▼ ' + image.name + unsaved,
                 '  ' + position,
                 mouse,
             ]
         return [
-            '<配置ﾓｰﾄﾞ> 左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:画像配置 右ｸﾘｯｸ:戻る F1:ﾃｷｽﾄ出力',
-            '  ' + image.name,
+            '<配置ﾓｰﾄﾞ> 左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:画像配置 右ｸﾘｯｸ:戻る F1:ﾃｷｽﾄ出力 F2:ﾍﾙﾌﾟ',
+            '  ' + image.name + unsaved,
             '▼ ' + position,
             mouse,
         ]
@@ -225,18 +257,20 @@ class ImageTest:
             self.mouse = event.pos
         if event.type == pygame.MOUSEBUTTONUP:
             self.drag_blocked = False
-        if event.type == pygame.QUIT:
+        # ウィンドウを閉じたときと、確認のあとにもう一度ESCを押したときは終了
+        if event.type == pygame.QUIT or (self.notice == QUIT_WARNING and is_quit_key(event)):
             self.running = False
         elif self.notice:
             # 何か入力があるまでメッセージを表示する
             if event.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
                 self.notice = None
                 self.drag_blocked = event.type == pygame.MOUSEBUTTONDOWN
-        elif event.type == pygame.KEYDOWN and (
-            event.key == pygame.K_ESCAPE
-            or (event.key == pygame.K_F4 and event.mod & pygame.KMOD_ALT)
-        ):
-            self.running = False
+        elif is_quit_key(event):
+            # 保存していない変更があったら、一度だけ確認する
+            if self.dirty:
+                self.notice = QUIT_WARNING
+            else:
+                self.running = False
         elif (event.type == pygame.KEYDOWN and event.key in (pygame.K_F1, pygame.K_s)) or (
             # F1の代替。
             event.type == pygame.MOUSEBUTTONDOWN and event.button == 2
@@ -248,6 +282,8 @@ class ImageTest:
             self.background = (self.background + 1) % len(BACKGROUNDS)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_h:
             self.show_info = not self.show_info
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
+            self.show_help = not self.show_help
         elif self.mode == 'select':
             self.select_mode(event)
         else:
@@ -339,6 +375,7 @@ class ImageTest:
             self.notice = f'テキスト出力できませんでした ({error.strerror})'
         else:
             self.notice = 'データをテキスト出力しました'
+            self.saved_layout = self.layout()
 
 
 def main():
