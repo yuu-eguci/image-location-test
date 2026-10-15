@@ -64,6 +64,7 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
     Others
         F1, S, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)
         F5: Reload the image folder (positions are kept)
+        U: Undo the last move or reorder (a whole drag is one step, press again to go back further)
         ESC, Alt+F4: Quit (press twice if not saved)
 
 テキストはこんな感じで、1 行に 1 画像の名前と座標 `[x, y]` が、奥にある画像から順に並ぶ。

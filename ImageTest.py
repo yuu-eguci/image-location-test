@@ -41,6 +41,7 @@ imageフォルダ内の画像を全部表示する。
     F2キーでヘルプを表示するようにした。
     右上に画像の右下の座標 (位置+大きさ) も表示するようにした。
     保存したファイルが無いときは、大きい画像ほど奥に置くようにした (背景で全部隠れないように)。
+    Uキーで、ひとつ前の位置と重なり順に戻せるようにした。
 """
 
 import os
@@ -69,7 +70,7 @@ HELP_TEXT = [
     '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Z/左ｸﾘｯｸ:配置ﾓｰﾄﾞへ',
     '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
     '          X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
-    'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし',
+    'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U:元に戻す',
     'B:背景  H:表示を隠す  ESC/Alt+F4:終了',
 ]
 
@@ -171,6 +172,8 @@ class ImageTest:
         self.show_info = True
         self.show_help = False
         self.saved_layout = self.layout()
+        # Uキーで戻すための、変更前の (画像名, 位置) の並び
+        self.history = []
         self.running = True
 
     def layout(self):
@@ -260,7 +263,26 @@ class ImageTest:
             self.screen.blit(text, (screen_width - width, 10 + self.font.get_linesize() * line_num))
 
     def handle_event(self, event):
-        """イベントをひとつ処理する。"""
+        """イベントをひとつ処理する。位置か重なり順が変わったら、元に戻せるように覚えておく。
+        ドラッグ中のマウス移動は覚えないので、ドラッグはまとめて1回で戻る。"""
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_u and not self.notice:
+            self.undo()
+            return
+        before = self.layout()
+        self.process(event)
+        if event.type != pygame.MOUSEMOTION and self.layout() != before:
+            self.history.append(before)
+
+    def undo(self):
+        """ひとつ前の位置と重なり順に戻す。選択中の画像はそのまま。"""
+        if not self.history:
+            return
+        selected = self.images[self.num].name
+        self.images = apply_layout(self.images, self.history.pop())
+        self.num = [image.name for image in self.images].index(selected)
+
+    def process(self, event):
+        """イベントをひとつ処理する (元に戻す以外)。"""
         if event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN):
             self.mouse = event.pos
         if event.type == pygame.MOUSEBUTTONUP:

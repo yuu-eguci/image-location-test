@@ -257,6 +257,50 @@ def test_any_key_or_click_closes_notice_and_keeps_mode(placing, event):
     assert placing.images[placing.num].xy == [0, 0]
 
 
+# 元に戻す
+
+
+def test_u_undoes_moves_one_by_one(placing):
+    image = placing.images[placing.num]
+    placing.handle_event(click(1, pos=(10, 10)))
+    placing.handle_event(click(1, pos=(50, 60)))
+    placing.handle_event(key(pygame.K_RIGHT))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [50, 60]
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [10, 10]
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+
+
+def test_u_undoes_a_whole_drag_at_once(placing):
+    image = placing.images[placing.num]
+    placing.handle_event(click(1, pos=(5, 5)))
+    for pos in [(20, 20), (30, 30)]:
+        placing.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=pos, buttons=(1, 0, 0)))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+
+
+def test_u_undoes_reorder_and_keeps_selection(app):
+    app.handle_event(key(pygame.K_z))
+    assert names(app) == ['b.png', 'a.png']
+    app.handle_event(key(pygame.K_u))
+    assert names(app) == ['a.png', 'b.png']
+    assert app.images[app.num].name == 'a.png'
+    assert not app.dirty
+
+
+def test_u_while_notice_only_closes_notice(placing):
+    placing.handle_event(click(1, pos=(10, 10)))
+    placing.handle_event(key(pygame.K_F1))
+    placing.handle_event(key(pygame.K_u))
+    assert placing.notice is None
+    assert placing.images[placing.num].xy == [10, 10]
+
+
 # 画像フォルダの読みなおし
 
 
@@ -464,7 +508,7 @@ def test_f2_toggles_help_with_all_keys(app):
     app.handle_event(key(pygame.K_F2))
     help_text = '\n'.join(app.info_text())
     assert app.info_text()[0].startswith('<ﾍﾙﾌﾟ>')
-    for word in ['Z', 'X', 'Shift', 'F1', 'S', 'F5', 'B', 'H', 'ESC']:
+    for word in ['Z', 'X', 'Shift', 'F1', 'S', 'F5', 'U', 'B', 'H', 'ESC']:
         assert word in help_text
     app.handle_event(key(pygame.K_F2))
     assert app.info_text()[0].startswith('<選択モード>')
