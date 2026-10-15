@@ -135,6 +135,16 @@ def test_z_brings_selected_image_to_front_and_enters_place_mode(app):
     assert app.mode == 'place'
 
 
+def test_shift_z_sends_selected_image_to_the_back(app):
+    app.handle_event(key(pygame.K_DOWN))
+    app.handle_event(key(pygame.K_z, mod=pygame.KMOD_LSHIFT))
+    assert names(app) == ['b.png', 'a.png']
+    assert app.images[app.num].name == 'b.png'
+    assert app.mode == 'select'
+    app.handle_event(key(pygame.K_u))
+    assert names(app) == ['a.png', 'b.png']
+
+
 def test_left_click_enters_place_mode_with_selected_image_in_front(app):
     app.handle_event(key(pygame.K_DOWN))
     app.handle_event(click(1))
@@ -726,6 +736,7 @@ def test_f2_toggles_help_with_all_keys(app):
     for word in [
         'Tab',
         'Z',
+        'Shift+Z',
         'X',
         'Shift',
         'Home',

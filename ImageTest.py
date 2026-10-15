@@ -46,6 +46,7 @@ imageフォルダ内の画像を全部表示する。
     Tabキーでマウスの下にある画像を選べるようにした (押すたびに奥の画像へ)。
     Gキーで方眼 (8, 16, 32ピクセル) を表示できるようにした。
     Mキーでマウスのまわりを8倍に拡大して表示できるようにした。
+    Shift+Zで選択中の画像を一番奥に送れるようにした。
 """
 
 import os
@@ -80,6 +81,7 @@ QUIT_WARNING = '保存していません。もう一度押すと終了'
 HELP_TEXT = [
     '<ﾍﾙﾌﾟ> F2:閉じる',
     '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Tab:ﾏｳｽの下の画像  Z/左ｸﾘｯｸ:配置ﾓｰﾄﾞへ',
+    '          Shift+Z:一番奥へ',
     '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
     '          Home/End/PageUp/PageDown:画面の端へ  X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
     'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U:元に戻す',
@@ -414,6 +416,7 @@ class ImageTest:
         上下, マウスホイール:選択
         Tab:マウスの下の画像を手前から選択
         Z, 左クリック:画像配置モードへ
+        Shift+Z:選択中の画像を一番奥へ
         """
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_UP:
@@ -422,7 +425,9 @@ class ImageTest:
                 self.choose_next(1)
             if event.key == pygame.K_TAB:
                 self.choose_under_mouse()
-            if event.key == pygame.K_z:
+            if event.key == pygame.K_z and event.mod & pygame.KMOD_SHIFT:
+                self.send_to_back()
+            elif event.key == pygame.K_z:
                 self.change_image_order()
                 self.mode = 'place'
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -453,6 +458,11 @@ class ImageTest:
         背景画像が前面に出てしまったときの対策。"""
         self.images.append(self.images.pop(self.num))
         self.num = len(self.images) - 1
+
+    def send_to_back(self):
+        """現在選択されてる画像をリストの最初(一番奥)にもってくる。前面に出てしまった背景画像用。"""
+        self.images.insert(0, self.images.pop(self.num))
+        self.num = 0
 
     def place_mode(self, event):
         """画像配置モード

@@ -47,6 +47,7 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
             Up, Down: Choose images
             Tab: Choose the images under the mouse (front first, press again to go behind)
             Z: To Place Image Mode
+            Shift+Z: Send the selected image to the back (stays in Select Image Mode)
 
     Place Image Mode
         Mouse
