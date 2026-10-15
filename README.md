@@ -53,7 +53,9 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
 
     Screen
         Selected image: framed (yellow: Select Image Mode, red: Place Image Mode)
-        Upper right: image name, position, size and mouse position (also from the image's top-left)
+        Upper right: image name, position, size, bottom-right (position + size)
+                     and mouse position (also from the image's top-left)
+        First start (no saved text file): larger images are put behind smaller ones
         B: Change background (black, gray, white, checker)
         H: Hide / show the upper right info and the frame
         F2: Show / hide help
@@ -69,9 +71,9 @@ Docker なら `output/`、Docker を使わないときは起動したフォル�
 書き込めなかったときは、右上にその理由が出る。
 次に起動したときにこのファイルがあると、その位置と重なり順を読み込んで続きから始まる。
 
+    skype.png [0, 0]
     lecturer.png [0, 0]
     pupil.png [0, 0]
-    skype.png [0, 0]
     dialogbox.png [0, 330]
 
 ## 開発

@@ -39,6 +39,8 @@ imageフォルダ内の画像を全部表示する。
     画面の外にある画像をカーソルキーで動かしたときに、画面の端まで飛ばないようにした。
     保存していない変更があるときは、ESCを2回押さないと終了しないようにした。
     F2キーでヘルプを表示するようにした。
+    右上に画像の右下の座標 (位置+大きさ) も表示するようにした。
+    保存したファイルが無いときは、大きい画像ほど奥に置くようにした (背景で全部隠れないように)。
 """
 
 import os
@@ -110,6 +112,12 @@ def create_image_list(image_dir):
         except pygame.error, OSError:
             continue
     return image_list
+
+
+def image_area(image):
+    """画像の面積。"""
+    width, height = image.surface.get_size()
+    return width * height
 
 
 def apply_layout(images, layout):
@@ -218,9 +226,10 @@ class ImageTest:
         image = self.images[self.num]
         unsaved = '  *未保存' if self.dirty else ''
         width, height = image.surface.get_size()
-        position = f'位置: {image.xy}  大きさ: {width}x{height}'
+        x, y = image.xy
+        position = f'位置: {image.xy}  大きさ: {width}x{height}  右下: ({x + width}, {y + height})'
         mx, my = self.mouse
-        mouse = f'  ﾏｳｽ: {self.mouse}  画像内: ({mx - image.xy[0]}, {my - image.xy[1]})'
+        mouse = f'  ﾏｳｽ: {self.mouse}  画像内: ({mx - x}, {my - y})'
         if self.mode == 'select':
             return [
                 '<選択モード> ﾏｳｽﾎｲｰﾙ:画像選択 左ｸﾘｯｸ:決定 F1:ﾃｷｽﾄ出力 F2:ﾍﾙﾌﾟ',
@@ -388,7 +397,8 @@ def main():
     # 長押しを有効化する。0.5秒押し続けたら、あとはフレームごとくらいの間隔で動く
     pygame.key.set_repeat(500, 50)
     font = pygame.font.Font(OTHER_DIR / 'VL-Gothic-Regular.ttf', 12)
-    images = create_image_list(IMAGE_DIR)
+    # 大きい画像 (背景など) ほど奥に置く。保存したファイルがあればそちらの並びが優先
+    images = sorted(create_image_list(IMAGE_DIR), key=image_area, reverse=True)
     if not images:
         pygame.quit()
         sys.exit(f'{IMAGE_DIR} に画像がありません。')

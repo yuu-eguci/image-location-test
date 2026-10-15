@@ -448,12 +448,14 @@ def test_info_text_follows_mode(app):
     assert app.info_text()[0].startswith('<選択モード>')
     assert app.info_text()[1:] == [
         '▼ a.png',
-        '  位置: [0, 0]  大きさ: 10x10',
+        '  位置: [0, 0]  大きさ: 10x10  右下: (10, 10)',
         '  ﾏｳｽ: (0, 0)  画像内: (0, 0)',
     ]
     app.handle_event(key(pygame.K_z))
     assert app.info_text()[0].startswith('<配置ﾓｰﾄﾞ>')
-    assert app.info_text()[2] == '▼ 位置: [0, 0]  大きさ: 10x10'
+    assert app.info_text()[2] == '▼ 位置: [0, 0]  大きさ: 10x10  右下: (10, 10)'
+    app.handle_event(click(1, pos=(30, 40)))
+    assert app.info_text()[2] == '▼ 位置: [30, 40]  大きさ: 10x10  右下: (40, 50)'
     app.handle_event(key(pygame.K_F1))
     assert app.info_text()[0] == '● データをテキスト出力しました ●'
 
@@ -552,9 +554,14 @@ def test_main_restores_layout_from_current_folder(monkeypatch, tmp_path):
         lambda self: seen.update(images=self.images, path=self.output_path),
     )
     monkeypatch.chdir(tmp_path)
-    (tmp_path / 'imagetestText.txt').write_text('skype.png [1, 2]\n', encoding='utf-8')
+    (tmp_path / 'imagetestText.txt').write_text('pupil.png [1, 2]\n', encoding='utf-8')
     ImageTest.main()
-    assert (seen['images'][0].name, seen['images'][0].xy) == ('skype.png', [1, 2])
+    assert [(image.name, image.xy) for image in seen['images']] == [
+        ('pupil.png', [1, 2]),
+        ('skype.png', [0, 0]),
+        ('dialogbox.png', [0, 0]),
+        ('lecturer.png', [0, 0]),
+    ]
     assert seen['path'] == ImageTest.OUTPUT_FILE
 
 
@@ -575,7 +582,8 @@ def test_main_sets_up_window_and_runs(monkeypatch, tmp_path):
     assert seen == {
         'caption': '画像配置テスト ESCキーで終了できます',
         'size': (WIDTH, HEIGHT),
-        'images': ['dialogbox.png', 'lecturer.png', 'pupil.png', 'skype.png'],
+        # 保存ファイルが無いときは大きい画像ほど奥 (同じ大きさなら名前順)
+        'images': ['skype.png', 'dialogbox.png', 'lecturer.png', 'pupil.png'],
         'repeat': (500, 50),
         'image_dir': ImageTest.IMAGE_DIR,
     }
