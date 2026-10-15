@@ -28,5 +28,5 @@ jobs:
         with:
           persist-credentials: false
       - run: docker compose build
-      - run: docker compose --profile dev build
-      - run: docker compose run --rm dev
+      - run: docker build --target dev --tag image-location-test-dev .
+      - run: docker run --rm image-location-test-dev

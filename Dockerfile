@@ -22,6 +22,9 @@ COPY pyproject.toml uv.lock .python-version ./
 
 FROM base AS dev
 RUN uv sync --frozen
+# マウントしたフォルダのユーザーが違っても動くように、キャッシュは書かない
+ENV RUFF_NO_CACHE=true \
+    PYTEST_ADDOPTS="-p no:cacheprovider"
 COPY . .
 USER app
 CMD ["sh", "-c", "ruff check && ruff format --check && pytest"]

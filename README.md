@@ -56,7 +56,7 @@ docker compose up --build
 
 ```bash
 # lint と test
-docker compose run --rm dev
+docker compose run --rm --build dev
 
 # Docker を使わない場合 (uv が必要)
 uv sync
