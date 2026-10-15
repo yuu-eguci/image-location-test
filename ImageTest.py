@@ -33,6 +33,7 @@ imageフォルダ内の画像を全部表示する。
     画面の大きさを環境変数 IMAGETEST_SIZE で変えられるようにした。
     Bキーで背景を黒、灰色、白、チェック柄に切り替えられるようにした。
     Hキーで右上の表示を隠せるようにした。
+    F5キーでimageフォルダを読みなおせるようにした (位置はそのまま)。
 """
 
 import os
@@ -97,22 +98,26 @@ def create_image_list(image_dir):
     return image_list
 
 
+def apply_layout(images, layout):
+    """(画像名, [x, y]) の並びのとおりに位置と重なり順をそろえる。並びに無い画像は前面に置く。"""
+    unplaced = {image.name: image for image in images}
+    placed = []
+    for name, xy in layout:
+        if name in unplaced:
+            image = unplaced.pop(name)
+            image.xy = list(xy)
+            placed.append(image)
+    return placed + [image for image in images if image.name in unplaced]
+
+
 def restore_positions(images, path):
-    """前回テキスト出力した位置と重なり順を読み込む。読めないファイルや行は無視する。
-    ファイルに無い画像は前面に置く。"""
+    """前回テキスト出力した位置と重なり順を読み込む。読めないファイルや行は無視する。"""
     try:
         lines = path.read_text(encoding='utf-8').splitlines()
     except OSError, UnicodeDecodeError:
         return images
-    unrestored = {image.name: image for image in images}
-    restored = []
-    for line in lines:
-        match = LINE_PATTERN.fullmatch(line)
-        if match and match[1] in unrestored:
-            image = unrestored.pop(match[1])
-            image.xy = [int(match[2]), int(match[3])]
-            restored.append(image)
-    return restored + [image for image in images if image.name in unrestored]
+    matches = (LINE_PATTERN.fullmatch(line) for line in lines)
+    return apply_layout(images, [(m[1], [int(m[2]), int(m[3])]) for m in matches if m])
 
 
 class ImageTest:
@@ -120,11 +125,12 @@ class ImageTest:
     notice にメッセージが入っている間はそれを表示して、何か入力されるまで待つ。
     """
 
-    def __init__(self, screen, font, images, output_path=OUTPUT_FILE):
+    def __init__(self, screen, font, images, output_path=OUTPUT_FILE, image_dir=IMAGE_DIR):
         self.screen = screen
         self.font = font
         self.images = images
         self.output_path = output_path
+        self.image_dir = image_dir
         self.mode = 'select'
         self.num = 0
         self.notice = None
@@ -224,6 +230,8 @@ class ImageTest:
             event.type == pygame.MOUSEBUTTONDOWN and event.button == 2
         ):
             self.putfile()
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_F5:
+            self.reload()
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_b:
             self.background = (self.background + 1) % len(BACKGROUNDS)
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_h:
@@ -293,6 +301,17 @@ class ImageTest:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             self.mode = 'select'
 
+    def reload(self):
+        """画像フォルダを読みなおす。位置と重なり順と選択中の画像はそのまま。"""
+        images = create_image_list(self.image_dir)
+        if not images:
+            self.notice = f'{self.image_dir} に画像がありません'
+            return
+        selected = self.images[self.num].name
+        self.images = apply_layout(images, [(image.name, image.xy) for image in self.images])
+        names = [image.name for image in self.images]
+        self.num = names.index(selected) if selected in names else 0
+
     def putfile(self):
         """画像の一覧をテキスト出力する。書き込めなかったら理由を表示する。"""
         text = ''.join(f'{image.name} {image.xy}\n' for image in self.images)
@@ -319,7 +338,7 @@ def main():
     if not images:
         pygame.quit()
         sys.exit(f'{IMAGE_DIR} に画像がありません。')
-    ImageTest(screen, font, restore_positions(images, OUTPUT_FILE)).run()
+    ImageTest(screen, font, restore_positions(images, OUTPUT_FILE), image_dir=IMAGE_DIR).run()
     pygame.quit()
 
 

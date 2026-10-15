@@ -20,7 +20,7 @@ docker compose up --build
 ブラウザで http://localhost:6080/vnc.html?autoconnect=1 を開くと、下の画面がブラウザの中に出てくる。
 
 - F1 (または S) を押すと `output/imagetestText.txt` に全画像の座標が出力される。次に起動したときは、その配置から始まる。
-- `image/` フォルダに自分の画像を入れて起動しなおすと、その画像を配置できる。
+- `image/` フォルダに自分の画像を入れて F5 を押す (か起動しなおす) と、その画像を配置できる。
 - ESC で終了すると、コンテナも止まる。
 - 画面の大きさは 640x480。作っているゲームに合わせたいときは `IMAGETEST_SIZE=800x600 docker compose up` みたいに指定する。
 
@@ -52,6 +52,7 @@ docker compose up --build
 
     Others
         F1, S, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)
+        F5: Reload the image folder (positions are kept)
         ESC, Alt+F4: Quit
 
 テキストはこんな感じで、1 行に 1 画像の名前と座標 `[x, y]` が、奥にある画像から順に並ぶ。

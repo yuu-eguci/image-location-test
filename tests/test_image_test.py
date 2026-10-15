@@ -30,7 +30,9 @@ def image_dir(tmp_path, screen):
 @pytest.fixture
 def app(image_dir, screen, font, tmp_path):
     images = ImageTest.create_image_list(image_dir)
-    return ImageTest.ImageTest(screen, font, images, output_path=tmp_path / 'out.txt')
+    return ImageTest.ImageTest(
+        screen, font, images, output_path=tmp_path / 'out.txt', image_dir=image_dir
+    )
 
 
 def names(app):
@@ -211,6 +213,40 @@ def test_any_key_or_click_closes_notice_and_keeps_mode(placing, event):
     assert placing.images[placing.num].xy == [0, 0]
 
 
+# 画像フォルダの読みなおし
+
+
+def test_f5_reloads_images_keeping_positions_order_and_selection(app, image_dir):
+    app.handle_event(key(pygame.K_DOWN))
+    app.handle_event(key(pygame.K_z))
+    app.handle_event(click(1, pos=(5, 6)))
+    save_png(image_dir / 'c.png')
+    (image_dir / 'a.png').unlink()
+    app.handle_event(key(pygame.K_F5))
+    assert [(image.name, image.xy) for image in app.images] == [
+        ('b.png', [5, 6]),
+        ('c.png', [0, 0]),
+    ]
+    assert app.images[app.num].name == 'b.png'
+    assert app.mode == 'place'
+
+
+def test_f5_selects_first_image_when_selected_one_is_gone(app, image_dir):
+    app.handle_event(key(pygame.K_DOWN))
+    (image_dir / 'b.png').unlink()
+    app.handle_event(key(pygame.K_F5))
+    assert names(app) == ['a.png']
+    assert app.num == 0
+
+
+def test_f5_keeps_images_when_folder_became_empty(app, image_dir):
+    for path in image_dir.glob('*.png'):
+        path.unlink()
+    app.handle_event(key(pygame.K_F5))
+    assert names(app) == ['a.png', 'b.png']
+    assert app.info_text()[0] == f'● {image_dir} に画像がありません ●'
+
+
 # 終了
 
 
@@ -383,6 +419,7 @@ def test_main_sets_up_window_and_runs(monkeypatch, tmp_path):
         seen['caption'] = pygame.display.get_caption()[0]
         seen['size'] = self.screen.get_size()
         seen['images'] = [image.name for image in self.images]
+        seen['image_dir'] = self.image_dir
         seen['repeat'] = pygame.key.get_repeat()
 
     monkeypatch.setattr(ImageTest.ImageTest, 'run', fake_run)
@@ -393,6 +430,7 @@ def test_main_sets_up_window_and_runs(monkeypatch, tmp_path):
         'size': (WIDTH, HEIGHT),
         'images': ['dialogbox.png', 'lecturer.png', 'pupil.png', 'skype.png'],
         'repeat': (500, 50),
+        'image_dir': ImageTest.IMAGE_DIR,
     }
 
 
