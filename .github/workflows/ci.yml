@@ -28,5 +28,11 @@ jobs:
         with:
           persist-credentials: false
       - run: docker compose build
+      - name: Start the app, stop it, and start it again
+        run: |
+          docker compose up --detach --wait --wait-timeout 60
+          docker compose stop
+          docker compose up --detach --wait --wait-timeout 60
+          docker compose down
       - run: docker build --target dev --tag image-location-test-dev .
       - run: docker run --rm image-location-test-dev

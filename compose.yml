@@ -12,6 +12,11 @@ services:
     volumes:
       - ./image:/app/image:ro
       - ./output:/app/output
+    healthcheck:
+      # 仮想ディスプレイと VNC が動いていれば "RFB" で始まる挨拶が返ってくる
+      test: ["CMD", "python", "-c", "import socket; assert socket.create_connection(('localhost', 5900), 2).recv(3) == b'RFB'"]
+      interval: 2s
+      retries: 15
 
   dev:
     build:
