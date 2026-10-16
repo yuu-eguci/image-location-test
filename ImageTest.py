@@ -48,6 +48,7 @@ imageフォルダ内の画像を全部表示する。
     Mキーでマウスのまわりを8倍に拡大して表示できるようにした。
     Shift+Zで選択中の画像を一番奥に送れるようにした。
     Ctrl+Z (MacはCmd+Z) でも元に戻せるようにした。
+    小さい画面では右上の表示を折り返すようにした。拡大表示はマウスが重なったら右下へ逃げる。
 """
 
 import os
@@ -243,7 +244,7 @@ class ImageTest:
         if area:
             self.draw_loupe(area)
         if self.show_info or self.notice or self.show_help:
-            self.blit_text(self.info_text())
+            self.blit_text(self.wrap(self.info_text()))
 
     def draw_grid(self):
         """方眼を描く。"""
@@ -265,10 +266,14 @@ class ImageTest:
         return area
 
     def draw_loupe(self, area):
-        """area を拡大して左下に表示する。真ん中の赤い枠がマウスのピクセル。"""
+        """area を拡大して左下 (マウスが左下にあるときは右下) に表示する。
+        真ん中の赤い枠がマウスのピクセル。"""
         half = LOUPE_SIZE // 2
         zoomed = pygame.transform.scale_by(area, LOUPE_SCALE)
-        left, top = 5, self.screen.get_height() - 5 - zoomed.get_height()
+        width, height = self.screen.get_size()
+        left, top = 5, height - 5 - zoomed.get_height()
+        if zoomed.get_rect(topleft=(left, top)).collidepoint(self.mouse):
+            left = width - 5 - zoomed.get_width()
         self.screen.blit(zoomed, (left, top))
         pygame.draw.rect(self.screen, (255, 255, 255), zoomed.get_rect(topleft=(left, top)), 1)
         center = (left + half * LOUPE_SCALE, top + half * LOUPE_SCALE, LOUPE_SCALE, LOUPE_SCALE)
@@ -312,6 +317,24 @@ class ImageTest:
             '▼ ' + position,
             mouse,
         ]
+
+    def wrap(self, text_list):
+        """画面の幅に入らない行は、スペースのところで折り返す (小さい IMAGETEST_SIZE 用)。"""
+        max_width = self.screen.get_width() - 20
+        lines = []
+        for line in text_list:
+            if self.font.size(line)[0] <= max_width:
+                lines.append(line)
+                continue
+            current = ''
+            for word in line.split():
+                if current and self.font.size(f'{current} {word}')[0] > max_width:
+                    lines.append(current)
+                    current = '  ' + word
+                else:
+                    current = f'{current} {word}' if current else word
+            lines.append(current)
+        return lines
 
     def blit_text(self, text_list):
         """Rect作ってその上にtext載せる"""

@@ -64,10 +64,12 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
         Selected image: framed (yellow: Select Image Mode, red: Place Image Mode)
         Upper right: image name, position, size, bottom-right (position + size)
                      and mouse position (also from the image's top-left)
+                     (lines wrap on small screens such as IMAGETEST_SIZE=320x240)
         First start (no saved text file): larger images are put behind smaller ones
         B: Change background (black, gray, white, checker)
         G: Change grid (off, 8px, 16px, 32px)
-        M: Show / hide magnifier (8x around the mouse, lower left; the mouse pixel is outlined)
+        M: Show / hide magnifier (8x around the mouse; the mouse pixel is outlined)
+           It is in the lower left, and moves to the lower right while the mouse is over it.
         H: Hide / show the upper right info and the frame
         F2: Show / hide help
         "*未保存" after the image name: moved but not saved yet

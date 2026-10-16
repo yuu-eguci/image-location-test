@@ -720,6 +720,39 @@ def test_magnifier_is_drawn_over_the_frame(app, screen):
     assert screen.get_at((19, HEIGHT - 65))[:3] == (0, 0, 0)
 
 
+def test_magnifier_moves_right_while_mouse_is_over_it(app, screen):
+    app.handle_event(key(pygame.K_m))
+    border_left, border_right = (5, HEIGHT - 60), (WIDTH - 6, HEIGHT - 60)
+    move_mouse(app, (300, 100))
+    app.draw()
+    assert screen.get_at(border_left)[:3] == (255, 255, 255)
+    assert screen.get_at(border_right)[:3] != (255, 255, 255)
+    move_mouse(app, (20, HEIGHT - 20))
+    app.draw()
+    assert screen.get_at(border_left)[:3] != (255, 255, 255)
+    assert screen.get_at(border_right)[:3] == (255, 255, 255)
+
+
+@pytest.mark.parametrize('show', [[], [pygame.K_F2], [pygame.K_z]])
+def test_info_box_fits_small_screen(image_dir, tmp_path, font, show):
+    small = pygame.display.set_mode((320, 240))
+    images = ImageTest.create_image_list(image_dir)
+    app = ImageTest.ImageTest(small, font, images, output_path=tmp_path / 'out.txt')
+    for k in show:
+        app.handle_event(key(k))
+    lines = app.wrap(app.info_text())
+    assert all(font.size(line)[0] <= 320 - 20 for line in lines)
+    assert ' '.join(lines).split() == ' '.join(app.info_text()).split()
+    app.draw()
+    box_left = 320 - (max(font.size(line)[0] for line in lines) + 10) - 5
+    assert box_left >= 0
+    assert small.get_at((box_left + 1, 6))[:3] == (255, 255, 255)
+
+
+def test_wrap_keeps_lines_that_fit(app):
+    assert app.wrap(['abc', 'de f']) == ['abc', 'de f']
+
+
 def test_h_hides_info_but_not_notice(app, screen):
     corner = (WIDTH - 6, 6)
     app.handle_event(key(pygame.K_h))
