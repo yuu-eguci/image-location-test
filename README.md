@@ -43,11 +43,12 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
     Select Image Mode
         Mouse
             Mouse wheel: Choose images (up = previous, down = next)
-            Left Click: To Place Image Mode
+            Left Click: Bring the image to the front and go to Place Image Mode
+                        (keep the button down and drag to move it right away)
         Keyboard
             Up, Down: Choose images
             Tab: Choose the images under the mouse (front first, press again to go behind)
-            Z: To Place Image Mode
+            Z: Bring the image to the front and go to Place Image Mode
             Shift+Z: Send the selected image to the back (stays in Select Image Mode)
 
     Place Image Mode
@@ -72,9 +73,9 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
         "*未保存" after the image name: moved but not saved yet
 
     Others
-        F1, S, Mouse Click 2: Output data as text file (imagetestText.txt, UTF-8)
+        F1, S, Middle Click: Output data as text file (imagetestText.txt, UTF-8)
         F5: Reload the image folder (positions are kept)
-        U: Undo the last move or reorder (press again to go back further)
+        U, Ctrl+Z, Cmd+Z: Undo the last move or reorder (press again to go back further)
            A click with its drag is one step, and so is pressing the same key in a row.
            U during a drag cancels the drag. F5 is not undone.
         ESC, Alt+F4: Quit (press twice if not saved)

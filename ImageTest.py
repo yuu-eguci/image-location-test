@@ -47,6 +47,7 @@ imageフォルダ内の画像を全部表示する。
     Gキーで方眼 (8, 16, 32ピクセル) を表示できるようにした。
     Mキーでマウスのまわりを8倍に拡大して表示できるようにした。
     Shift+Zで選択中の画像を一番奥に送れるようにした。
+    Ctrl+Z (MacはCmd+Z) でも元に戻せるようにした。
 """
 
 import os
@@ -80,11 +81,11 @@ HISTORY_LIMIT = 100
 QUIT_WARNING = '保存していません。もう一度押すと終了'
 HELP_TEXT = [
     '<ﾍﾙﾌﾟ> F2:閉じる',
-    '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Tab:ﾏｳｽの下の画像  Z/左ｸﾘｯｸ:配置ﾓｰﾄﾞへ',
-    '          Shift+Z:一番奥へ',
+    '選択ﾓｰﾄﾞ  上下/ﾎｲｰﾙ:画像選択  Tab:ﾏｳｽの下の画像',
+    '          Z/左ｸﾘｯｸ:手前にして配置ﾓｰﾄﾞへ  Shift+Z:一番奥へ',
     '配置ﾓｰﾄﾞ  ｶｰｿﾙ:1px  Shift+ｶｰｿﾙ:10px  左ｸﾘｯｸ/ﾄﾞﾗｯｸﾞ:配置',
     '          Home/End/PageUp/PageDown:画面の端へ  X/右ｸﾘｯｸ:選択ﾓｰﾄﾞへ',
-    'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U:元に戻す',
+    'F1/S/中ｸﾘｯｸ:ﾃｷｽﾄ出力  F5:画像の読みなおし  U/Ctrl+Z:元に戻す',
     'B:背景  G:方眼  M:拡大  H:表示を隠す  ESC/Alt+F4:終了',
 ]
 
@@ -166,6 +167,14 @@ def is_quit_key(event):
     """ESCかAlt+F4。"""
     return event.type == pygame.KEYDOWN and (
         event.key == pygame.K_ESCAPE or (event.key == pygame.K_F4 and event.mod & pygame.KMOD_ALT)
+    )
+
+
+def is_undo_key(event):
+    """UかCtrl+Z (MacならCmd+Z)。"""
+    return event.type == pygame.KEYDOWN and (
+        event.key == pygame.K_u
+        or (event.key == pygame.K_z and event.mod & (pygame.KMOD_CTRL | pygame.KMOD_GUI))
     )
 
 
@@ -322,10 +331,11 @@ class ImageTest:
     def handle_event(self, event):
         """イベントをひとつ処理する。位置か重なり順が変わったら、元に戻せるように変更前を覚えておく。
         クリックとそのままのドラッグは1回分、同じキーを続けて押したのも1回分。F5の読みなおしは覚えない。"""
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_u and not self.notice:
+        if is_undo_key(event) and not self.notice:
             self.undo()
             # ドラッグ中なら、そのドラッグはやめる
             self.drag_blocked = self.pressed
+            self.last_key = None
             return
         notice = self.notice
         before = self.layout()

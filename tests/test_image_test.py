@@ -419,6 +419,27 @@ def test_reload_is_not_an_undo_step(app, image_dir):
     assert names(app) == ['a.png', 'b.png', 'c.png']
 
 
+def test_same_key_after_undo_is_a_new_step(placing):
+    image = placing.images[placing.num]
+    placing.handle_event(key(pygame.K_RIGHT))
+    placing.handle_event(key(pygame.K_u))
+    placing.handle_event(key(pygame.K_RIGHT))
+    placing.handle_event(key(pygame.K_u))
+    assert image.xy == [0, 0]
+    assert names(placing) == ['b.png', 'a.png']
+
+
+@pytest.mark.parametrize('mod', [pygame.KMOD_LCTRL, pygame.KMOD_RCTRL, pygame.KMOD_LGUI])
+def test_ctrl_or_cmd_z_undoes_without_reordering(app, mod):
+    app.handle_event(key(pygame.K_z))
+    app.handle_event(key(pygame.K_x))
+    app.handle_event(key(pygame.K_z, mod=mod))
+    assert names(app) == ['a.png', 'b.png']
+    assert app.mode == 'select'
+    app.handle_event(key(pygame.K_z, mod=mod | pygame.KMOD_LSHIFT))
+    assert names(app) == ['a.png', 'b.png']
+
+
 def test_u_without_history_does_nothing(app):
     app.handle_event(key(pygame.K_u))
     assert [(image.name, image.xy) for image in app.images] == [
@@ -745,6 +766,7 @@ def test_f2_toggles_help_with_all_keys(app):
         'S',
         'F5',
         'U',
+        'Ctrl+Z',
         'B',
         'G',
         'M',
