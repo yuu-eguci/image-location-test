@@ -38,6 +38,10 @@ F1 または S で、全画像の座標が `output/imagetestText.txt` に出る�
 今の画面。
 `dialogbox.png` を選んで座標 `[0, 330]` に置いたところ。
 
+配置を戻すときは U / Ctrl+Z / Cmd+Z。
+小さい画面では説明が折り返される。
+拡大鏡はマウスに重なると反対側へ移る。
+
 ## Usage
 
     Select Image Mode
